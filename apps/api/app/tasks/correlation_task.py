@@ -1,29 +1,9 @@
 import asyncio
 import uuid
 
-from celery import Celery
-
-from app.config import get_settings
 from app.database import async_session_factory
 from app.services.correlation_engine import CorrelationEngine
-
-settings = get_settings()
-
-celery_app = Celery(
-    "syspulse",
-    broker=settings.redis_url,
-    backend=settings.redis_url,
-)
-celery_app.conf.update(
-    timezone="UTC",
-    enable_utc=True,
-    beat_schedule={
-        "run-correlation-cycle-every-60-seconds": {
-            "task": "syspulse.correlation.run_cycle",
-            "schedule": 60.0,
-        }
-    },
-)
+from app.tasks.celery_app import celery_app
 
 
 @celery_app.task(name="syspulse.correlation.run_cycle")

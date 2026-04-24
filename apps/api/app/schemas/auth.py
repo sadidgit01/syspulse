@@ -101,3 +101,11 @@ class InviteResponse(BaseModel):
 
 class AcceptInviteRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
+
+
+class AIQueryRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=500)
+
+
+class AIQueryResponse(BaseModel):
+    answer: str

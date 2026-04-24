@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Agent, Metric
 from app.redis_client import metrics_channel, publish_json
+from app.services.anomaly_detector import anomaly_detector
 from app.schemas.auth import UserIdentity
 from app.schemas.metric import (
     MetricBatchIngestRequest,
@@ -68,6 +70,23 @@ class MetricService:
             )
         except Exception:
             logger.exception("Failed to publish metric update for org %s", agent.org_id)
+
+        try:
+            latest_snapshot_payload = _build_snapshot_payload(agent, latest_snapshot)
+            anomaly = anomaly_detector.predict(agent.id, latest_snapshot_payload)
+            if anomaly.is_anomaly:
+                event = await anomaly_detector.record_event(
+                    session=session,
+                    org_id=agent.org_id,
+                    agent_id=agent.id,
+                    result=anomaly,
+                    snapshot=latest_snapshot_payload,
+                )
+                from app.tasks.anomaly_task import enrich_anomaly_explanation
+
+                enrich_anomaly_explanation.delay(str(event.id))
+        except Exception:
+            logger.exception("Failed to process anomaly detection for agent %s", agent.id)
 
         return len(records)
 
@@ -167,3 +186,16 @@ class MetricService:
             for row in reversed(rows)
         ]
         return points
+
+
+def _build_snapshot_payload(agent: Agent, snapshot: Any) -> dict[str, Any]:
+    return {
+        "timestamp": snapshot.timestamp.isoformat(),
+        "agent_id": str(agent.id),
+        "org_id": str(agent.org_id),
+        "cpu_percent": float(snapshot.cpu_percent),
+        "memory_percent": float(snapshot.memory_percent),
+        "disk_percent": float(snapshot.disk_percent),
+        "net_bytes_in": float(snapshot.net_bytes_in),
+        "net_bytes_out": float(snapshot.net_bytes_out),
+    }

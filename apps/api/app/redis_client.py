@@ -40,6 +40,18 @@ def correlation_channel(org_id: UUID | str) -> str:
     return f"correlation:{org_id}"
 
 
+def anomalies_channel(org_id: UUID | str) -> str:
+    return f"anomalies:{org_id}"
+
+
+def forecasts_channel(org_id: UUID | str) -> str:
+    return f"forecasts:{org_id}"
+
+
+def ai_query_rate_limit_key(user_id: UUID | str) -> str:
+    return f"ai_query:rate_limit:{user_id}"
+
+
 async def ping_redis() -> bool:
     try:
         client = await get_redis()

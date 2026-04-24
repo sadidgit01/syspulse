@@ -103,3 +103,18 @@ body {
 .log-row-enter {
   animation: log-fade-in 260ms ease-out;
 }
+
+@keyframes anomaly-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.anomaly-card-enter {
+  animation: anomaly-fade-in 320ms ease-out;
+}

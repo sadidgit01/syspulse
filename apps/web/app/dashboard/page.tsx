@@ -3,6 +3,8 @@
 import { AlertTriangle, Activity, ArrowUpRight, Cpu, Orbit, ShieldCheck, Waves } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { AnomalyFeed } from "@/components/ai/AnomalyFeed";
+import { ForecastWarnings } from "@/components/ai/ForecastWarnings";
 import { AgentHeatmap } from "@/components/dashboard/AgentHeatmap";
 import { AgentStatusCard } from "@/components/dashboard/AgentStatusCard";
 import { CorrelationTimeline } from "@/components/logs/CorrelationTimeline";
@@ -36,6 +38,7 @@ export default function DashboardPage() {
   const session = useSession();
   const agents = useSysPulseStore((state) => state.agents);
   const metrics = useSysPulseStore((state) => state.metrics);
+  const anomalies = useSysPulseStore((state) => state.anomalies);
   const setAgents = useSysPulseStore((state) => state.setAgents);
   const wsStatus = useWebSocket(session?.orgId ?? null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -99,6 +102,20 @@ export default function DashboardPage() {
     accumulator[agent.id] = series.at(-1) ?? null;
     return accumulator;
   }, {});
+  const latestAnomalyByAgent = anomalies.reduce<Record<string, (typeof anomalies)[number] | null>>(
+    (accumulator, anomaly) => {
+      const ageInMs = Date.now() - Date.parse(anomaly.createdAt);
+      if (ageInMs > 10 * 60 * 1000) {
+        return accumulator;
+      }
+      const current = accumulator[anomaly.agentId];
+      if (!current || Date.parse(anomaly.createdAt) > Date.parse(current.createdAt)) {
+        accumulator[anomaly.agentId] = anomaly;
+      }
+      return accumulator;
+    },
+    {}
+  );
 
   const healthyAgents = agents.filter((agent) => agent.status === "alive").length;
   const hotAgents = agents.filter((agent) => {
@@ -207,6 +224,8 @@ export default function DashboardPage() {
           />
         </div>
 
+        <ForecastWarnings />
+
         <MetricsGrid
           agent={selectedAgent}
           selectedAgentId={selectedAgentId}
@@ -235,6 +254,7 @@ export default function DashboardPage() {
                 key={agent.id}
                 agent={agent}
                 latestMetric={latestByAgent[agent.id]}
+                latestAnomaly={latestAnomalyByAgent[agent.id] ?? null}
                 isActive={agent.id === selectedAgentId}
                 onSelect={setSelectedAgentId}
                 onCorrelate={(nextAgent) => setCorrelationAgentId(nextAgent.id)}
@@ -327,6 +347,21 @@ export default function DashboardPage() {
             ) : null}
           </CardContent>
         </Card>
+      </section>
+
+      <section id="ai" className="space-y-6">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">AI layer</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Model output in real time</h2>
+          </div>
+          <p className="max-w-xl text-right text-sm text-slate-400">
+            Anomaly events and their explanations stream into the same dashboard surface so operators
+            can react without leaving the live metrics view.
+          </p>
+        </div>
+
+        <AnomalyFeed />
       </section>
 
       <section id="alerts" className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">

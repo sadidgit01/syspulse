@@ -7,6 +7,7 @@ export type WsStatus =
   | "error";
 export type UserRole = "admin" | "viewer" | "alert_manager";
 export type LogLevel = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+export type ForecastMetric = "cpu_percent" | "memory_percent" | "disk_percent";
 
 export interface Agent {
   id: string;
@@ -26,6 +27,15 @@ export interface MetricSnapshot {
   diskPercent: number;
   netBytesIn: number;
   netBytesOut: number;
+}
+
+export interface MetricSnapshotBackendPayload {
+  timestamp?: string;
+  cpu_percent?: number;
+  memory_percent?: number;
+  disk_percent?: number;
+  net_bytes_in?: number;
+  net_bytes_out?: number;
 }
 
 export interface MetricStreamMessage {
@@ -119,6 +129,39 @@ export interface AlertRule {
   severity: "warning" | "critical";
 }
 
+export interface AnomalyEvent {
+  id: string;
+  orgId: string;
+  agentId: string;
+  score: number;
+  reason: string;
+  details: Record<string, unknown>;
+  snapshot: MetricSnapshot | null;
+  explanation: string | null;
+  createdAt: string;
+}
+
+export interface ForecastPoint {
+  ds: string;
+  yhat: number;
+  yhatLower: number;
+  yhatUpper: number;
+}
+
+export interface ForecastAlert {
+  id: string;
+  orgId: string;
+  agentId: string;
+  metric: ForecastMetric;
+  currentValue: number;
+  predictedValue: number;
+  exceedInHours: number | null;
+  forecastPoints: ForecastPoint[];
+  explanation: string | null;
+  createdAt: string;
+  isSent: boolean;
+}
+
 export interface UserProfile {
   id: string;
   org_id: string;
@@ -191,4 +234,39 @@ export interface CorrelationBackendResponse {
     timestamp: string;
     data: Record<string, string | number>;
   }>;
+}
+
+export interface AnomalyEventBackendResponse {
+  id: string;
+  org_id: string;
+  agent_id: string;
+  score: number;
+  reason: string;
+  details: Record<string, unknown>;
+  snapshot: MetricSnapshotBackendPayload | null;
+  explanation: string | null;
+  created_at: string;
+}
+
+export interface ForecastAlertBackendResponse {
+  id: string;
+  org_id: string;
+  agent_id: string;
+  metric: ForecastMetric;
+  current_value: number;
+  predicted_value: number;
+  exceed_in_hours: number | null;
+  forecast_points: Array<{
+    ds: string;
+    yhat: number;
+    yhat_lower: number;
+    yhat_upper: number;
+  }>;
+  explanation: string | null;
+  created_at: string;
+  is_sent: boolean;
+}
+
+export interface AIQueryBackendResponse {
+  answer: string;
 }

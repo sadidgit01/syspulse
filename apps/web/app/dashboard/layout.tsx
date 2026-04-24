@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { AIQueryBox } from "@/components/ai/AIQueryBox";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { SessionProvider } from "@/components/providers/session-provider";
@@ -22,6 +23,7 @@ export default async function DashboardLayout({
         <div className="flex min-h-screen flex-col">
           <Topbar />
           <main className="flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-10">{children}</main>
+          <AIQueryBox />
         </div>
       </div>
     </SessionProvider>

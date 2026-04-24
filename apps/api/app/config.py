@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     database_url: str = Field(alias="DATABASE_URL")
     redis_url: str = Field(alias="REDIS_URL")
     secret_key: str = Field(alias="SECRET_KEY", min_length=32)
+    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
     allowed_origins: list[str] = Field(default_factory=list, alias="ALLOWED_ORIGINS")
     debug: bool = Field(default=False, alias="DEBUG")
 
