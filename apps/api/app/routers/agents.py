@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user
+from app.auth import require_role
 from app.database import get_session
+from app.models import UserRole
 from app.schemas.agent import (
     AgentListItem,
     AgentRegistrationRequest,
@@ -28,7 +29,9 @@ async def register_agent(
 
 @router.get("/agents", response_model=list[AgentListItem])
 async def list_agents(
-    user: UserIdentity = Depends(get_current_user),
+    user: UserIdentity = Depends(
+        require_role([UserRole.ADMIN, UserRole.VIEWER, UserRole.ALERT_MANAGER])
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> list[AgentListItem]:
     return await AgentService.list_agents(session=session, org_id=user.org_id)

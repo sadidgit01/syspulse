@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_agent, get_current_user
+from app.auth import get_current_agent, require_role
 from app.database import get_session
-from app.models import Agent
+from app.models import Agent, UserRole
 from app.schemas.agent import AgentIdentity
 from app.schemas.auth import UserIdentity
 from app.schemas.metric import (
@@ -48,7 +48,9 @@ async def get_metrics(
     from_time: datetime | None = Query(default=None, alias="from"),
     to_time: datetime | None = Query(default=None, alias="to"),
     resolution: MetricResolution = Query(default=MetricResolution.RAW),
-    user: UserIdentity = Depends(get_current_user),
+    user: UserIdentity = Depends(
+        require_role([UserRole.ADMIN, UserRole.VIEWER, UserRole.ALERT_MANAGER])
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> list[MetricPointResponse]:
     return await MetricService.list_metrics(

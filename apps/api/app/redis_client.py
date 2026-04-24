@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -43,6 +44,21 @@ async def publish_json(channel: str, payload: dict[str, Any]) -> None:
 async def create_pubsub() -> PubSub:
     client = await get_redis()
     return client.pubsub()
+
+
+def used_refresh_token_key(jti: str) -> str:
+    return f"refresh_token:used:{jti}"
+
+
+async def mark_refresh_token_used(jti: str, expires_at: datetime) -> None:
+    client = await get_redis()
+    ttl = max(1, int((expires_at - datetime.now(timezone.utc)).total_seconds()))
+    await client.set(used_refresh_token_key(jti), "1", ex=ttl)
+
+
+async def is_refresh_token_used(jti: str) -> bool:
+    client = await get_redis()
+    return bool(await client.exists(used_refresh_token_key(jti)))
 
 
 async def close_redis() -> None:

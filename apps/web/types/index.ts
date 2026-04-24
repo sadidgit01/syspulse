@@ -1,4 +1,5 @@
 export type WsStatus = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected" | "error";
+export type UserRole = "admin" | "viewer" | "alert_manager";
 
 export interface Agent {
   id: string;
@@ -43,4 +44,42 @@ export interface AlertRule {
   metric: "cpuPercent" | "memoryPercent" | "diskPercent";
   threshold: number;
   severity: "warning" | "critical";
+}
+
+export interface UserProfile {
+  id: string;
+  org_id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface OrganizationProfile {
+  org_id: string;
+  name: string;
+  slug: string;
+  org_token: string;
+}
+
+export interface MeBackendResponse {
+  user: UserProfile;
+  organization: OrganizationProfile;
+  role: UserRole;
+}
+
+export interface AuthBackendResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+export interface RegisterBackendResponse extends AuthBackendResponse {
+  user_id: string;
+  org_id: string;
+  org_token: string;
+}
+
+export interface LoginBackendResponse extends AuthBackendResponse {
+  user: UserProfile;
 }

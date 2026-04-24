@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 
-from app.auth import create_user_token
+from app.auth import create_access_token
 from app.database import async_session_factory
 from app.models import Organization, User, UserRole
 
@@ -40,7 +40,7 @@ async def seed() -> SeedResult:
                 org_id=organization.org_id,
                 email="admin@syspulse.local",
                 full_name="SysPulse Local Admin",
-                role=UserRole.OWNER,
+                role=UserRole.ADMIN,
             )
             admin_user.set_password(password)
             session.add(admin_user)
@@ -50,10 +50,10 @@ async def seed() -> SeedResult:
 
         await session.commit()
 
-        token = create_user_token(
+        token = create_access_token(
             user_id=admin_user.id,
             org_id=organization.org_id,
-            role=admin_user.role.value,
+            role=admin_user.role,
         )
 
         return SeedResult(

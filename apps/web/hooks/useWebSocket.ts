@@ -2,17 +2,15 @@
 
 import { useEffect } from "react";
 
-import { getStoredOrgId } from "@/lib/api";
 import { useSysPulseStore } from "@/lib/store";
 import { MetricsWebSocketClient } from "@/lib/websocket";
 
-export function useWebSocket() {
+export function useWebSocket(orgId: string | null) {
   const pushMetric = useSysPulseStore((state) => state.pushMetric);
   const setWsStatus = useSysPulseStore((state) => state.setWsStatus);
   const wsStatus = useSysPulseStore((state) => state.wsStatus);
 
   useEffect(() => {
-    const orgId = getStoredOrgId();
     if (!orgId) {
       setWsStatus("disconnected");
       return;
@@ -29,7 +27,7 @@ export function useWebSocket() {
     return () => {
       client.disconnect();
     };
-  }, [pushMetric, setWsStatus]);
+  }, [orgId, pushMetric, setWsStatus]);
 
   return wsStatus;
 }

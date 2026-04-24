@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from secrets import token_urlsafe
 
 from sqlalchemy import DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,11 +14,11 @@ class Organization(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     org_token: Mapped[str] = mapped_column(
-        String(255),
+        String(36),
         nullable=False,
         unique=True,
         index=True,
-        default=lambda: token_urlsafe(32),
+        default=lambda: str(uuid.uuid4()),
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

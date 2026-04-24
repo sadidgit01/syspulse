@@ -6,14 +6,15 @@ import { useEffect, useState } from "react";
 import { AgentHeatmap } from "@/components/dashboard/AgentHeatmap";
 import { AgentStatusCard } from "@/components/dashboard/AgentStatusCard";
 import { MetricsGrid } from "@/components/dashboard/MetricsGrid";
+import { useSession } from "@/components/providers/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMetrics } from "@/hooks/useMetrics";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { listAgents, getStoredOrgId } from "@/lib/api";
+import { listAgents } from "@/lib/api";
 import { useSysPulseStore } from "@/lib/store";
 import { cn, formatRelativeTime, formatThroughput } from "@/lib/utils";
-import type { Agent, MetricSnapshot } from "@/types";
+import type { MetricSnapshot } from "@/types";
 
 const alertRules = [
   {
@@ -31,19 +32,14 @@ const alertRules = [
 ] as const;
 
 export default function DashboardPage() {
+  const session = useSession();
   const agents = useSysPulseStore((state) => state.agents);
   const metrics = useSysPulseStore((state) => state.metrics);
   const setAgents = useSysPulseStore((state) => state.setAgents);
-  const wsStatus = useWebSocket();
-  const [orgId, setOrgId] = useState<string | null>(null);
+  const wsStatus = useWebSocket(session?.orgId ?? null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    const resolvedOrgId = getStoredOrgId();
-    setOrgId(resolvedOrgId);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,7 +145,9 @@ export default function DashboardPage() {
                 </div>
                 <p className="mt-3 text-2xl font-semibold text-white">{wsStatus}</p>
                 <p className="mt-1 text-xs text-slate-400">
-                  {orgId ? `Connected to org ${orgId.slice(0, 8)}...` : "Waiting for org context"}
+                  {session?.orgId
+                    ? `Connected to org ${session.orgId.slice(0, 8)}...`
+                    : "Waiting for org context"}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
@@ -244,11 +242,8 @@ export default function DashboardPage() {
                 <CardContent className="flex min-h-48 flex-col items-center justify-center gap-3 p-6 text-center">
                   <p className="text-lg font-medium text-white">No agents are visible yet.</p>
                   <p className="max-w-md text-sm text-slate-400">
-                    Register an agent, drop a user JWT into local storage as
-                    <code className="mx-1 rounded bg-white/5 px-1.5 py-0.5 text-slate-200">
-                      syspulse:user-token
-                    </code>
-                    and the fleet will populate automatically.
+                    Register an agent against your organization token and the fleet will populate
+                    automatically as soon as metrics begin streaming.
                   </p>
                 </CardContent>
               </Card>
