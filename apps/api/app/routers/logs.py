@@ -17,6 +17,7 @@ from app.redis_client import create_pubsub, logs_channel
 from app.schemas.agent import AgentIdentity
 from app.schemas.auth import UserIdentity
 from app.schemas.log import (
+    RecentCorrelationEventsResponse,
     CorrelationResponse,
     LogBatchIngestRequest,
     LogLevel,
@@ -24,6 +25,7 @@ from app.schemas.log import (
     LogStatsResponse,
 )
 from app.schemas.metric import IngestAcceptedResponse
+from app.services.correlation_engine import CorrelationEngine
 from app.services.log_service import LogService
 
 router = APIRouter()
@@ -175,3 +177,19 @@ async def correlate(
         from_time=from_time,
         to_time=to_time,
     )
+
+
+@router.get("/correlate/events", response_model=RecentCorrelationEventsResponse)
+async def get_recent_correlation_events(
+    limit: int = Query(default=20, ge=1, le=100),
+    user: UserIdentity = Depends(
+        require_role([UserRole.ADMIN, UserRole.VIEWER, UserRole.ALERT_MANAGER])
+    ),
+    session: AsyncSession = Depends(get_session),
+) -> RecentCorrelationEventsResponse:
+    events = await CorrelationEngine.get_recent(
+        session=session,
+        org_id=user.org_id,
+        limit=limit,
+    )
+    return RecentCorrelationEventsResponse(events=events)

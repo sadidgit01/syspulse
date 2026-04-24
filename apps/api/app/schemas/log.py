@@ -87,3 +87,39 @@ class CorrelationEvent(BaseModel):
 
 class CorrelationResponse(BaseModel):
     events: list[CorrelationEvent]
+
+
+class CorrelationSeverity(StrEnum):
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+
+class SpikeMetric(StrEnum):
+    CPU = "cpu"
+    MEMORY = "memory"
+    DISK = "disk"
+
+
+class CorrelationStoredLogSnippet(BaseModel):
+    id: uuid.UUID
+    time: datetime
+    level: LogLevel
+    source: str
+    message: str
+
+
+class CorrelationEventRead(BaseModel):
+    id: uuid.UUID
+    org_id: uuid.UUID
+    agent_id: uuid.UUID
+    spike_metric: SpikeMetric
+    spike_value: float
+    spike_time: datetime
+    correlated_logs: list[CorrelationStoredLogSnippet]
+    severity: CorrelationSeverity
+    correlation_score: float
+    created_at: datetime
+
+
+class RecentCorrelationEventsResponse(BaseModel):
+    events: list[CorrelationEventRead]
