@@ -20,6 +20,7 @@ settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 JWT_ALGORITHM = "HS256"
 AGENT_TOKEN_TTL = timedelta(days=30)
+USER_TOKEN_TTL = timedelta(days=7)
 
 
 def create_agent_token(agent_id: UUID, org_id: UUID) -> str:
@@ -30,6 +31,19 @@ def create_agent_token(agent_id: UUID, org_id: UUID) -> str:
         "token_type": TokenType.AGENT.value,
         "iat": int(now.timestamp()),
         "exp": int((now + AGENT_TOKEN_TTL).timestamp()),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=JWT_ALGORITHM)
+
+
+def create_user_token(user_id: UUID, org_id: UUID, role: str | None) -> str:
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "org_id": str(org_id),
+        "token_type": TokenType.USER.value,
+        "role": role,
+        "iat": int(now.timestamp()),
+        "exp": int((now + USER_TOKEN_TTL).timestamp()),
     }
     return jwt.encode(payload, settings.secret_key, algorithm=JWT_ALGORITHM)
 
