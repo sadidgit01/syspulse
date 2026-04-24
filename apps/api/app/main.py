@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.auth import JWTAuthMiddleware
 from app.config import get_settings
 from app.database import close_database, initialize_database
 from app.redis_client import close_redis, get_redis
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
         debug=settings.debug,
         lifespan=lifespan,
     )
+    application.add_middleware(JWTAuthMiddleware)
     if settings.allowed_origins:
         application.add_middleware(
             CORSMiddleware,

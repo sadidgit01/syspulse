@@ -1,12 +1,25 @@
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class AgentRegistration(BaseModel):
-    org_id: uuid.UUID
+class AgentStatus(StrEnum):
+    ALIVE = "alive"
+    OFFLINE = "offline"
+
+
+class AgentRegistrationRequest(BaseModel):
     hostname: str = Field(min_length=1, max_length=255)
+    os: str = Field(min_length=1, max_length=64)
+    arch: str = Field(min_length=1, max_length=64)
+    org_token: str = Field(min_length=1, max_length=255)
+
+
+class AgentRegistrationResponse(BaseModel):
+    agent_id: uuid.UUID
+    agent_token: str
 
 
 class AgentRead(BaseModel):
@@ -15,5 +28,24 @@ class AgentRead(BaseModel):
     id: uuid.UUID
     org_id: uuid.UUID
     hostname: str
+    os: str
+    arch: str
     last_seen: datetime
     created_at: datetime
+
+
+class AgentListItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    org_id: uuid.UUID
+    hostname: str
+    os: str
+    arch: str
+    last_seen: datetime
+    status: AgentStatus
+
+
+class AgentIdentity(BaseModel):
+    agent_id: uuid.UUID
+    org_id: uuid.UUID

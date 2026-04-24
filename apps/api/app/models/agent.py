@@ -21,6 +21,8 @@ class Agent(Base):
         index=True,
     )
     hostname: Mapped[str] = mapped_column(String(255), nullable=False)
+    os: Mapped[str] = mapped_column(String(64), nullable=False)
+    arch: Mapped[str] = mapped_column(String(64), nullable=False)
     last_seen: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -1,38 +1,61 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth import get_current_agent, get_current_user
 from app.database import get_session
-from app.schemas.metric import MetricIngest, MetricRead
+from app.models import Agent
+from app.schemas.agent import AgentIdentity
+from app.schemas.auth import UserIdentity
+from app.schemas.metric import (
+    IngestAcceptedResponse,
+    MetricBatchIngestRequest,
+    MetricPointResponse,
+    MetricResolution,
+)
 from app.services.metric_service import MetricService
 
 router = APIRouter()
 
 
-@router.post("/ingest/metrics", response_model=MetricRead, status_code=status.HTTP_201_CREATED)
+@router.post("/ingest/metrics", response_model=IngestAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def ingest_metrics(
-    payload: MetricIngest,
+    payload: MetricBatchIngestRequest,
+    identity: AgentIdentity = Depends(get_current_agent),
     session: AsyncSession = Depends(get_session),
-) -> MetricRead:
-    return await MetricService.ingest_metric(session=session, payload=payload)
+) -> IngestAcceptedResponse:
+    agent = await session.scalar(
+        select(Agent).where(
+            Agent.id == identity.agent_id,
+            Agent.org_id == identity.org_id,
+        )
+    )
+    if agent is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Agent token is no longer valid.",
+        )
+    accepted = await MetricService.ingest_metrics(session=session, agent=agent, payload=payload)
+    return IngestAcceptedResponse(accepted=accepted)
 
 
-@router.get("/metrics/{agent_id}", response_model=list[MetricRead])
+@router.get("/metrics/{agent_id}", response_model=list[MetricPointResponse])
 async def get_metrics(
     agent_id: UUID,
-    org_id: UUID = Query(...),
-    start: datetime | None = Query(default=None),
-    end: datetime | None = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=1000),
+    from_time: datetime | None = Query(default=None, alias="from"),
+    to_time: datetime | None = Query(default=None, alias="to"),
+    resolution: MetricResolution = Query(default=MetricResolution.RAW),
+    user: UserIdentity = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> list[MetricRead]:
+) -> list[MetricPointResponse]:
     return await MetricService.list_metrics(
         session=session,
-        org_id=org_id,
+        user=user,
         agent_id=agent_id,
-        start_time=start,
-        end_time=end,
-        limit=limit,
+        from_time=from_time,
+        to_time=to_time,
+        resolution=resolution,
     )
