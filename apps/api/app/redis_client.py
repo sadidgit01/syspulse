@@ -28,6 +28,14 @@ def metrics_channel(org_id: UUID | str) -> str:
     return f"metrics:{org_id}"
 
 
+def logs_channel(org_id: UUID | str) -> str:
+    return f"logs:{org_id}"
+
+
+def alerts_candidates_channel(org_id: UUID | str) -> str:
+    return f"alerts:candidates:{org_id}"
+
+
 async def ping_redis() -> bool:
     try:
         client = await get_redis()

@@ -1,3 +1,6 @@
+import uuid
+from typing import Any
+
 from datetime import datetime, timezone
 from enum import StrEnum
 
@@ -34,3 +37,53 @@ class LogBatchIngestRequest(RootModel[list[LogEntryIn]]):
         if not self.root:
             raise ValueError("At least one log entry is required.")
         return self
+
+
+class LogEntryRead(BaseModel):
+    id: uuid.UUID
+    time: datetime
+    agent_id: uuid.UUID
+    org_id: uuid.UUID
+    level: LogLevel
+    source: str
+    message: str
+
+
+class LogsQueryResponse(BaseModel):
+    logs: list[LogEntryRead]
+    total: int
+    page: int
+    pages: int
+
+
+class LogLevelCount(BaseModel):
+    level: LogLevel
+    count: int
+
+
+class LogSourceCount(BaseModel):
+    source: str
+    count: int
+
+
+class LogErrorRatePoint(BaseModel):
+    timestamp: datetime
+    total_logs: int
+    error_logs: int
+    error_rate: float
+
+
+class LogStatsResponse(BaseModel):
+    levels: list[LogLevelCount]
+    sources: list[LogSourceCount]
+    error_rate_over_time: list[LogErrorRatePoint]
+
+
+class CorrelationEvent(BaseModel):
+    type: str
+    timestamp: datetime
+    data: dict[str, Any]
+
+
+class CorrelationResponse(BaseModel):
+    events: list[CorrelationEvent]

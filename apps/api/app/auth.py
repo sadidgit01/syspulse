@@ -180,6 +180,18 @@ async def get_current_user(
     claims: TokenClaims = Depends(_get_token_claims),
     session: AsyncSession = Depends(get_session),
 ) -> UserIdentity:
+    return await get_user_from_access_claims(claims, session)
+
+
+async def get_user_from_access_token(token: str, session: AsyncSession) -> UserIdentity:
+    claims = decode_token(token)
+    return await get_user_from_access_claims(claims, session)
+
+
+async def get_user_from_access_claims(
+    claims: TokenClaims,
+    session: AsyncSession,
+) -> UserIdentity:
     if claims.token_type != TokenType.ACCESS or claims.org_id is None or claims.role is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

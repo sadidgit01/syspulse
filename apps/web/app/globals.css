@@ -88,3 +88,18 @@ body {
 .glass-divider {
   background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.24), transparent);
 }
+
+@keyframes log-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.log-row-enter {
+  animation: log-fade-in 260ms ease-out;
+}

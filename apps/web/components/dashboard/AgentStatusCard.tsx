@@ -3,6 +3,7 @@
 import { Cpu, HardDrive, MemoryStick, SignalHigh } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn, formatRelativeTime, getAgentToneClasses } from "@/lib/utils";
 import type { Agent, MetricSnapshot } from "@/types";
@@ -11,54 +12,73 @@ export function AgentStatusCard({
   agent,
   latestMetric,
   isActive,
-  onSelect
+  onSelect,
+  onCorrelate
 }: {
   agent: Agent;
   latestMetric: MetricSnapshot | null;
   isActive: boolean;
   onSelect: (agentId: string) => void;
+  onCorrelate: (agent: Agent) => void;
 }) {
   const toneClasses = getAgentToneClasses(agent.lastSeen);
 
   return (
-    <button className="text-left" onClick={() => onSelect(agent.id)} type="button">
-      <Card
-        className={cn(
-          "panel-surface panel-hover h-full rounded-3xl border p-0",
-          isActive ? "border-blue-500/40 shadow-[0_0_0_1px_rgba(59,130,246,0.16)]" : "border-slate-800/80"
-        )}
-      >
-        <CardContent className="p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-lg font-semibold text-white">{agent.hostname}</p>
-              <p className="mt-1 text-sm text-slate-400">
-                {agent.os} · {agent.arch}
-              </p>
-            </div>
-
-            <Badge className={cn("border px-2.5 py-1 uppercase tracking-[0.18em]", toneClasses.badge)} variant="outline">
-              {toneClasses.label}
-            </Badge>
+    <Card
+      className={cn(
+        "panel-surface panel-hover h-full cursor-pointer rounded-3xl border p-0",
+        isActive
+          ? "border-blue-500/40 shadow-[0_0_0_1px_rgba(59,130,246,0.16)]"
+          : "border-slate-800/80"
+      )}
+      onClick={() => onSelect(agent.id)}
+    >
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-lg font-semibold text-white">{agent.hostname}</p>
+            <p className="mt-1 text-sm text-slate-400">
+              {agent.os} · {agent.arch}
+            </p>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <MetricTile icon={Cpu} label="CPU" value={latestMetric ? `${latestMetric.cpuPercent.toFixed(0)}%` : "--"} />
-            <MetricTile
-              icon={MemoryStick}
-              label="Memory"
-              value={latestMetric ? `${latestMetric.memoryPercent.toFixed(0)}%` : "--"}
-            />
-            <MetricTile
-              icon={HardDrive}
-              label="Disk"
-              value={latestMetric ? `${latestMetric.diskPercent.toFixed(0)}%` : "--"}
-            />
-            <MetricTile icon={SignalHigh} label="Last seen" value={formatRelativeTime(agent.lastSeen)} />
-          </div>
-        </CardContent>
-      </Card>
-    </button>
+          <Badge
+            className={cn("border px-2.5 py-1 uppercase tracking-[0.18em]", toneClasses.badge)}
+            variant="outline"
+          >
+            {toneClasses.label}
+          </Badge>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <MetricTile icon={Cpu} label="CPU" value={latestMetric ? `${latestMetric.cpuPercent.toFixed(0)}%` : "--"} />
+          <MetricTile
+            icon={MemoryStick}
+            label="Memory"
+            value={latestMetric ? `${latestMetric.memoryPercent.toFixed(0)}%` : "--"}
+          />
+          <MetricTile
+            icon={HardDrive}
+            label="Disk"
+            value={latestMetric ? `${latestMetric.diskPercent.toFixed(0)}%` : "--"}
+          />
+          <MetricTile icon={SignalHigh} label="Last seen" value={formatRelativeTime(agent.lastSeen)} />
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(event) => {
+              event.stopPropagation();
+              onCorrelate(agent);
+            }}
+          >
+            Correlate
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

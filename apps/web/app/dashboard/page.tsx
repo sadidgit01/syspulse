@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { AgentHeatmap } from "@/components/dashboard/AgentHeatmap";
 import { AgentStatusCard } from "@/components/dashboard/AgentStatusCard";
+import { CorrelationTimeline } from "@/components/logs/CorrelationTimeline";
 import { MetricsGrid } from "@/components/dashboard/MetricsGrid";
 import { useSession } from "@/components/providers/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ export default function DashboardPage() {
   const setAgents = useSysPulseStore((state) => state.setAgents);
   const wsStatus = useWebSocket(session?.orgId ?? null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [correlationAgentId, setCorrelationAgentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -90,6 +92,7 @@ export default function DashboardPage() {
   }, [agents, selectedAgentId]);
 
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null;
+  const correlationAgent = agents.find((agent) => agent.id === correlationAgentId) ?? null;
   const { snapshots: selectedAgentMetrics, latest: latestMetric } = useMetrics(selectedAgentId);
   const latestByAgent = agents.reduce<Record<string, MetricSnapshot | null>>((accumulator, agent) => {
     const series = metrics[agent.id] ?? [];
@@ -234,6 +237,7 @@ export default function DashboardPage() {
                 latestMetric={latestByAgent[agent.id]}
                 isActive={agent.id === selectedAgentId}
                 onSelect={setSelectedAgentId}
+                onCorrelate={(nextAgent) => setCorrelationAgentId(nextAgent.id)}
               />
             ))}
 
@@ -401,6 +405,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </section>
+
+      <CorrelationTimeline
+        agent={correlationAgent}
+        open={correlationAgent !== null}
+        onClose={() => setCorrelationAgentId(null)}
+      />
     </div>
   );
 }

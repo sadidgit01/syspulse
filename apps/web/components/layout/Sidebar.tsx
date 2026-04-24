@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 const navigationItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard#agents", label: "Agents", icon: Server },
-  { href: "/dashboard#logs", label: "Logs", icon: ScrollText },
+  { href: "/dashboard/logs", label: "Logs", icon: ScrollText },
   { href: "/dashboard#alerts", label: "Alerts", icon: BellRing }
 ];
 
@@ -31,7 +31,12 @@ export function Sidebar() {
 
         <nav className="space-y-2">
           {navigationItems.map(({ href, label, icon: Icon }) => {
-            const isActive = href === "/dashboard" && pathname === "/dashboard";
+            const isActive =
+              href === "/dashboard"
+                ? pathname === "/dashboard"
+                : href === "/dashboard/logs"
+                  ? pathname === "/dashboard/logs"
+                  : pathname === "/dashboard";
 
             return (
               <Link

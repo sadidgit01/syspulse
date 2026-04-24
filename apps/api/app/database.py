@@ -54,6 +54,29 @@ async def initialize_database() -> None:
                 "SELECT create_hypertable('log_entries', 'time', if_not_exists => TRUE, migrate_data => TRUE)"
             )
         )
+        await connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_log_entries_org_id ON log_entries (org_id)")
+        )
+        await connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_log_entries_agent_id ON log_entries (agent_id)")
+        )
+        await connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_log_entries_level ON log_entries (level)")
+        )
+        await connection.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_log_entries_source ON log_entries (source)")
+        )
+        await connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_log_entries_message_tsv "
+                "ON log_entries USING GIN (to_tsvector('english', message))"
+            )
+        )
+        await connection.execute(
+            text(
+                "SELECT add_retention_policy('log_entries', INTERVAL '90 days', if_not_exists => TRUE)"
+            )
+        )
 
 
 async def check_database_health() -> bool:

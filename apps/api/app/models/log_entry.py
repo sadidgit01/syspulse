@@ -16,6 +16,7 @@ class LogEntry(Base):
             ondelete="CASCADE",
         ),
         Index("ix_log_entries_org_agent_time", "org_id", "agent_id", "time"),
+        Index("ix_log_entries_org_agent_level_source_time", "org_id", "agent_id", "level", "source", "time"),
     )
 
     time: Mapped[datetime] = mapped_column(
@@ -25,10 +26,10 @@ class LogEntry(Base):
         server_default=func.now(),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    agent_id: Mapped[uuid.UUID] = mapped_column(nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
     org_id: Mapped[uuid.UUID] = mapped_column(nullable=False, index=True)
-    level: Mapped[str] = mapped_column(String(32), nullable=False)
-    source: Mapped[str] = mapped_column(String(255), nullable=False)
+    level: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
 
     agent = relationship("Agent", back_populates="log_entries")
