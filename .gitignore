@@ -210,3 +210,7 @@ __marimo__/
 node_modules/
 .next/
 npm-debug.log*
+
+# Local runtime artifacts
+.tmp/
+apps/agent/python_agent/.agent.local.json

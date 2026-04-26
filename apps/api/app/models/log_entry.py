@@ -8,15 +8,15 @@ from app.database import Base
 
 
 class LogEntry(Base):
-    __tablename__ = "log_entries"
+    __tablename__ = "log_entry"
     __table_args__ = (
         ForeignKeyConstraint(
             ["agent_id", "org_id"],
             ["agents.id", "agents.org_id"],
             ondelete="CASCADE",
         ),
-        Index("ix_log_entries_org_agent_time", "org_id", "agent_id", "time"),
-        Index("ix_log_entries_org_agent_level_source_time", "org_id", "agent_id", "level", "source", "time"),
+        Index("ix_log_entry_org_agent_time", "org_id", "agent_id", "time"),
+        Index("ix_log_entry_org_agent_level_source_time", "org_id", "agent_id", "level", "source", "time"),
     )
 
     time: Mapped[datetime] = mapped_column(

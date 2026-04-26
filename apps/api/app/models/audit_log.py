@@ -8,7 +8,7 @@ from app.database import Base
 
 
 class AuditLog(Base):
-    __tablename__ = "audit_logs"
+    __tablename__ = "audit_log"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     org_id: Mapped[uuid.UUID | None] = mapped_column(

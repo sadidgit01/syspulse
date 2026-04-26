@@ -51,30 +51,30 @@ async def initialize_database() -> None:
         )
         await connection.execute(
             text(
-                "SELECT create_hypertable('log_entries', 'time', if_not_exists => TRUE, migrate_data => TRUE)"
+                "SELECT create_hypertable('log_entry', 'time', if_not_exists => TRUE, migrate_data => TRUE)"
             )
         )
         await connection.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_log_entries_org_id ON log_entries (org_id)")
+            text("CREATE INDEX IF NOT EXISTS ix_log_entry_org_id ON log_entry (org_id)")
         )
         await connection.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_log_entries_agent_id ON log_entries (agent_id)")
+            text("CREATE INDEX IF NOT EXISTS ix_log_entry_agent_id ON log_entry (agent_id)")
         )
         await connection.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_log_entries_level ON log_entries (level)")
+            text("CREATE INDEX IF NOT EXISTS ix_log_entry_level ON log_entry (level)")
         )
         await connection.execute(
-            text("CREATE INDEX IF NOT EXISTS ix_log_entries_source ON log_entries (source)")
+            text("CREATE INDEX IF NOT EXISTS ix_log_entry_source ON log_entry (source)")
         )
         await connection.execute(
             text(
-                "CREATE INDEX IF NOT EXISTS ix_log_entries_message_tsv "
-                "ON log_entries USING GIN (to_tsvector('english', message))"
+                "CREATE INDEX IF NOT EXISTS ix_log_entry_message_tsv "
+                "ON log_entry USING GIN (to_tsvector('english', message))"
             )
         )
         await connection.execute(
             text(
-                "SELECT add_retention_policy('log_entries', INTERVAL '90 days', if_not_exists => TRUE)"
+                "SELECT add_retention_policy('log_entry', INTERVAL '90 days', if_not_exists => TRUE)"
             )
         )
 

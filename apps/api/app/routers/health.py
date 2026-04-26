@@ -7,7 +7,7 @@ from app.redis_client import ping_redis
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/health", response_model=None)
 async def healthcheck() -> JSONResponse | dict[str, str]:
     db_ok = await check_database_health()
     redis_ok = await ping_redis()
