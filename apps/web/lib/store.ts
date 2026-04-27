@@ -14,6 +14,7 @@ import { createDefaultLogFilters, matchesLogFilters } from "@/lib/utils";
 const MAX_SNAPSHOTS = 60;
 const MAX_LOGS = 500;
 const MAX_ANOMALIES = 50;
+const MAX_TRACE_IDS = 10;
 
 interface SysPulseStore {
   agents: Agent[];
@@ -21,6 +22,7 @@ interface SysPulseStore {
   logs: LogEntry[];
   anomalies: AnomalyEvent[];
   forecasts: ForecastAlert[];
+  lastTraceIds: string[];
   logFilters: LogFilters;
   wsStatus: WsStatus;
   setAgents: (agents: Agent[]) => void;
@@ -30,6 +32,7 @@ interface SysPulseStore {
   setAnomalies: (events: AnomalyEvent[]) => void;
   addAnomaly: (event: AnomalyEvent) => void;
   setForecasts: (alerts: ForecastAlert[]) => void;
+  addTraceId: (traceId: string) => void;
   setLogFilters: (nextFilters: Partial<LogFilters>) => void;
   resetLogFilters: () => void;
   setWsStatus: (status: WsStatus) => void;
@@ -92,6 +95,7 @@ export const useSysPulseStore = create<SysPulseStore>((set) => ({
   logs: [],
   anomalies: [],
   forecasts: [],
+  lastTraceIds: [],
   logFilters: createDefaultLogFilters(),
   wsStatus: "idle",
   setAgents: (agents) => {
@@ -163,6 +167,13 @@ export const useSysPulseStore = create<SysPulseStore>((set) => ({
     set({
       forecasts: sortForecasts(alerts)
     }),
+  addTraceId: (traceId) =>
+    set((state) => ({
+      lastTraceIds: [traceId, ...state.lastTraceIds.filter((existing) => existing !== traceId)].slice(
+        0,
+        MAX_TRACE_IDS
+      )
+    })),
   setLogFilters: (nextFilters) =>
     set((state) => ({
       logFilters: {

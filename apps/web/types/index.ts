@@ -270,3 +270,39 @@ export interface ForecastAlertBackendResponse {
 export interface AIQueryBackendResponse {
   answer: string;
 }
+
+export interface SpanLogField {
+  key: string;
+  value: string | number | boolean | null;
+}
+
+export interface SpanLog {
+  timestamp: string;
+  fields: SpanLogField[];
+}
+
+export interface Span {
+  spanId: string;
+  parentSpanId: string | null;
+  operationName: string;
+  serviceName: string;
+  startTime: string;
+  duration: number;
+  tags: Record<string, string | number | boolean | null>;
+  logs: SpanLog[];
+}
+
+export interface TraceListItem {
+  traceId: string;
+  serviceName: string;
+  operationName: string;
+  duration: number;
+  startTime: string;
+  spanCount: number;
+  hasError: boolean;
+}
+
+export interface TraceDetail {
+  traceId: string;
+  spans: Span[];
+}

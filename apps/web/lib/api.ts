@@ -16,8 +16,11 @@ import type {
   LogStatsBackendResponse,
   MetricSnapshot,
   MetricSnapshotBackendPayload,
-  LogsBackendResponse
+  LogsBackendResponse,
+  TraceDetail,
+  TraceListItem
 } from "@/types";
+import { useSysPulseStore } from "@/lib/store";
 
 const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
 
@@ -61,6 +64,7 @@ export async function apiFetch<T>(
     cache: "no-store",
     credentials: "include"
   });
+  rememberTraceId(response.headers.get("X-Trace-ID"));
 
   if (response.status === 401 && !retried) {
     const refreshed = await refreshAccessToken();
@@ -88,6 +92,54 @@ export async function apiFetch<T>(
   }
 
   return (await response.json()) as T;
+}
+
+export async function listTraces(filters?: {
+  service?: string;
+  limit?: number;
+  search?: string;
+  from?: string;
+  to?: string;
+}): Promise<TraceListItem[]> {
+  const query = new URLSearchParams();
+  query.set("service", filters?.service ?? "syspulse-api");
+  query.set("limit", String(filters?.limit ?? 20));
+  if (filters?.search) {
+    query.set("search", filters.search);
+  }
+  if (filters?.from) {
+    query.set("from", filters.from);
+  }
+  if (filters?.to) {
+    query.set("to", filters.to);
+  }
+
+  const response = await fetch(`/api/traces?${query.toString()}`, {
+    cache: "no-store",
+    credentials: "include"
+  });
+  if (!response.ok) {
+    throw new ApiError("Unable to load traces.", response.status);
+  }
+  return (await response.json()) as TraceListItem[];
+}
+
+export async function getTraceDetail(traceId: string): Promise<TraceDetail> {
+  const response = await fetch(`/api/traces/${encodeURIComponent(traceId)}`, {
+    cache: "no-store",
+    credentials: "include"
+  });
+  if (!response.ok) {
+    throw new ApiError("Unable to load trace detail.", response.status);
+  }
+  return (await response.json()) as TraceDetail;
+}
+
+function rememberTraceId(traceId: string | null): void {
+  if (!traceId) {
+    return;
+  }
+  useSysPulseStore.getState().addTraceId(traceId);
 }
 
 export async function listAgents(): Promise<Agent[]> {

@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
+from opentelemetry import trace
 from prophet import Prophet
 from sqlalchemy import desc, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,7 @@ from app.models import Agent, ForecastAlert, Metric
 from app.schemas.forecast import ForecastAlertRead, ForecastMetric, ForecastPoint, ForecastResult
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 METRIC_COLUMN_MAP = {
     "cpu_percent": Metric.cpu,
@@ -30,86 +32,98 @@ class MetricForecaster:
         metric: ForecastMetric,
         hours_ahead: int = 6,
     ) -> ForecastResult | None:
-        if metric not in METRIC_COLUMN_MAP:
-            raise ValueError(f"Unsupported metric: {metric}")
-        if hours_ahead <= 0:
-            raise ValueError("hours_ahead must be greater than zero.")
+        with tracer.start_as_current_span("ai.forecast") as span:
+            span.set_attribute("agent_id", str(agent_id))
+            span.set_attribute("metric", str(metric))
 
-        metric_column = METRIC_COLUMN_MAP[metric]
-        window_start = datetime.now(timezone.utc) - timedelta(days=7)
+            if metric not in METRIC_COLUMN_MAP:
+                raise ValueError(f"Unsupported metric: {metric}")
+            if hours_ahead <= 0:
+                raise ValueError("hours_ahead must be greater than zero.")
 
-        async with async_session_factory() as session:
-            rows = (
-                await session.execute(
-                    select(Metric.time, metric_column.label("value"))
-                    .where(
-                        Metric.agent_id == agent_id,
-                        Metric.org_id == org_id,
-                        Metric.time >= window_start,
+            metric_column = METRIC_COLUMN_MAP[metric]
+            window_start = datetime.now(timezone.utc) - timedelta(days=7)
+
+            async with async_session_factory() as session:
+                rows = (
+                    await session.execute(
+                        select(Metric.time, metric_column.label("value"))
+                        .where(
+                            Metric.agent_id == agent_id,
+                            Metric.org_id == org_id,
+                            Metric.time >= window_start,
+                        )
+                        .order_by(Metric.time.asc())
                     )
-                    .order_by(Metric.time.asc())
+                ).all()
+
+            if len(rows) < 200:
+                span.set_attribute("will_exceed_90", False)
+                span.set_attribute("exceed_in_hours", -1.0)
+                return None
+
+            history = pd.DataFrame(
+                {
+                    "ds": [row.time for row in rows],
+                    "y": [float(row.value) for row in rows],
+                }
+            )
+
+            model = Prophet(
+                daily_seasonality=True,
+                weekly_seasonality=True,
+                interval_width=0.95,
+            )
+            model.fit(history)
+
+            future = model.make_future_dataframe(periods=hours_ahead * 60, freq="min", include_history=True)
+            forecast_frame = model.predict(future)
+
+            now = pd.Timestamp.now(tz="UTC")
+            future_rows = forecast_frame[forecast_frame["ds"] > now]
+            predicted_terminal = future_rows.iloc[-1] if not future_rows.empty else forecast_frame.iloc[-1]
+            threshold_rows = future_rows[future_rows["yhat"] >= 90.0]
+            first_exceed = threshold_rows.iloc[0] if not threshold_rows.empty else None
+
+            history_window_start = now - pd.Timedelta(hours=12)
+            displayed_points = forecast_frame[forecast_frame["ds"] >= history_window_start]
+
+            forecast_points = [
+                ForecastPoint(
+                    ds=_ensure_utc_datetime(row.ds),
+                    yhat=float(row.yhat),
+                    yhat_lower=float(row.yhat_lower),
+                    yhat_upper=float(row.yhat_upper),
                 )
-            ).all()
+                for row in displayed_points.itertuples(index=False)
+            ]
 
-        if len(rows) < 200:
-            return None
+            exceed_in_hours = None
+            predicted_at = None
+            will_exceed_90 = first_exceed is not None
+            if first_exceed is not None:
+                predicted_at = _ensure_utc_datetime(first_exceed.ds)
+                exceed_in_hours = round(
+                    max(0.0, (predicted_at - datetime.now(timezone.utc)).total_seconds() / 3600.0),
+                    3,
+                )
 
-        history = pd.DataFrame(
-            {
-                "ds": [row.time for row in rows],
-                "y": [float(row.value) for row in rows],
-            }
-        )
-
-        model = Prophet(
-            daily_seasonality=True,
-            weekly_seasonality=True,
-            interval_width=0.95,
-        )
-        model.fit(history)
-
-        future = model.make_future_dataframe(periods=hours_ahead * 60, freq="min", include_history=True)
-        forecast_frame = model.predict(future)
-
-        now = pd.Timestamp.now(tz="UTC")
-        future_rows = forecast_frame[forecast_frame["ds"] > now]
-        predicted_terminal = future_rows.iloc[-1] if not future_rows.empty else forecast_frame.iloc[-1]
-        threshold_rows = future_rows[future_rows["yhat"] >= 90.0]
-        first_exceed = threshold_rows.iloc[0] if not threshold_rows.empty else None
-
-        history_window_start = now - pd.Timedelta(hours=12)
-        displayed_points = forecast_frame[forecast_frame["ds"] >= history_window_start]
-
-        forecast_points = [
-            ForecastPoint(
-                ds=_ensure_utc_datetime(row.ds),
-                yhat=float(row.yhat),
-                yhat_lower=float(row.yhat_lower),
-                yhat_upper=float(row.yhat_upper),
-            )
-            for row in displayed_points.itertuples(index=False)
-        ]
-
-        exceed_in_hours = None
-        predicted_at = None
-        will_exceed_90 = first_exceed is not None
-        if first_exceed is not None:
-            predicted_at = _ensure_utc_datetime(first_exceed.ds)
-            exceed_in_hours = round(
-                max(0.0, (predicted_at - datetime.now(timezone.utc)).total_seconds() / 3600.0),
-                3,
+            span.set_attribute("will_exceed_90", will_exceed_90)
+            span.set_attribute(
+                "exceed_in_hours",
+                float(exceed_in_hours) if exceed_in_hours is not None else -1.0,
             )
 
-        return ForecastResult(
-            metric=metric,
-            agent_id=str(agent_id),
-            current_value=float(history["y"].iloc[-1]),
-            predicted_at=predicted_at,
-            predicted_value=float(predicted_terminal.yhat),
-            will_exceed_90=will_exceed_90,
-            exceed_in_hours=exceed_in_hours,
-            forecast_points=forecast_points,
-        )
+            return ForecastResult(
+                metric=metric,
+                agent_id=str(agent_id),
+                current_value=float(history["y"].iloc[-1]),
+                predicted_at=predicted_at,
+                predicted_value=float(predicted_terminal.yhat),
+                will_exceed_90=will_exceed_90,
+                exceed_in_hours=exceed_in_hours,
+                forecast_points=forecast_points,
+            )
 
     async def check_all_agents(self, org_id: uuid.UUID) -> list[ForecastAlertRead]:
         async with async_session_factory() as session:

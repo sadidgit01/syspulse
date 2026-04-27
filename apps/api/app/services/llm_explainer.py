@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import json
 import logging
+from time import perf_counter
 from collections import Counter
 from datetime import datetime
 from typing import Any
 
 from groq import Groq
+from opentelemetry import trace
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 MODEL_NAME = "meta-llama/llama-4-scout-17b-16e-instruct"
 MAX_INPUT_CHARS = 2000
@@ -102,27 +105,34 @@ class LLMExplainer:
             return DEFAULT_EXPLANATION
 
     def _complete(self, *, system_prompt: str, user_prompt: str) -> str:
-        client = self._get_client()
-        if client is None:
-            return DEFAULT_EXPLANATION
+        input_tokens = _estimate_tokens(system_prompt) + _estimate_tokens(user_prompt)
+        start_time = perf_counter()
+        with tracer.start_as_current_span("ai.llm_explain") as span:
+            span.set_attribute("model", MODEL_NAME)
+            span.set_attribute("input_tokens", input_tokens)
+            try:
+                client = self._get_client()
+                if client is None:
+                    return DEFAULT_EXPLANATION
 
-        try:
-            completion = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": _truncate_text(system_prompt, 600)},
-                    {"role": "user", "content": _truncate_text(user_prompt, MAX_INPUT_CHARS)},
-                ],
-                temperature=0.2,
-                max_completion_tokens=MAX_OUTPUT_TOKENS,
-            )
-            content = completion.choices[0].message.content if completion.choices else None
-            if not content:
+                completion = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": _truncate_text(system_prompt, 600)},
+                        {"role": "user", "content": _truncate_text(user_prompt, MAX_INPUT_CHARS)},
+                    ],
+                    temperature=0.2,
+                    max_completion_tokens=MAX_OUTPUT_TOKENS,
+                )
+                content = completion.choices[0].message.content if completion.choices else None
+                if not content:
+                    return DEFAULT_EXPLANATION
+                return _truncate_text(content.strip().replace("\n", " "), 900)
+            except Exception:
+                logger.exception("Groq completion request failed.")
                 return DEFAULT_EXPLANATION
-            return _truncate_text(content.strip().replace("\n", " "), 900)
-        except Exception:
-            logger.exception("Groq completion request failed.")
-            return DEFAULT_EXPLANATION
+            finally:
+                span.set_attribute("duration_ms", round((perf_counter() - start_time) * 1000, 3))
 
     def _get_client(self) -> Groq | None:
         if not settings.groq_api_key:
@@ -181,6 +191,10 @@ def _truncate_text(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return value[: max(0, limit - 3)].rstrip() + "..."
+
+
+def _estimate_tokens(value: str) -> int:
+    return max(1, len(value) // 4)
 
 
 llm_explainer = LLMExplainer()

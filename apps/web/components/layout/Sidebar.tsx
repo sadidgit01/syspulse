@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, LayoutDashboard, ScrollText, Server } from "lucide-react";
+import { Activity, BellRing, LayoutDashboard, ScrollText, Server } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,6 +10,7 @@ const navigationItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard#agents", label: "Agents", icon: Server },
   { href: "/dashboard/logs", label: "Logs", icon: ScrollText },
+  { href: "/dashboard/traces", label: "Traces", icon: Activity },
   { href: "/dashboard#alerts", label: "Alerts", icon: BellRing }
 ];
 
@@ -34,8 +35,12 @@ export function Sidebar() {
             const isActive =
               href === "/dashboard"
                 ? pathname === "/dashboard"
-                : href === "/dashboard/logs"
-                  ? pathname === "/dashboard/logs"
+                : href.includes("#")
+                  ? pathname === "/dashboard"
+                  : href === "/dashboard/traces"
+                    ? pathname.startsWith("/dashboard/traces")
+                    : href === "/dashboard/logs"
+                      ? pathname === "/dashboard/logs"
                   : pathname === "/dashboard";
 
             return (

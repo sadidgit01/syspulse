@@ -9,8 +9,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import IsolationForest
 from fastapi import HTTPException, status
+from opentelemetry import trace
+from sklearn.ensemble import IsolationForest
 from sqlalchemy import desc, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,7 @@ from app.models import AnomalyEvent, Metric
 from app.schemas.anomaly import AnomalyEventRead, AnomalyResult
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 FEATURE_COLUMNS = [
     "cpu_percent",
@@ -94,45 +96,53 @@ class AnomalyDetector:
         return True
 
     def predict(self, agent_id: uuid.UUID, snapshot: dict[str, float | int | str]) -> AnomalyResult:
-        model = self._models.get(agent_id)
-        if model is None and not self._load_model(agent_id):
-            return AnomalyResult(is_anomaly=False, score=0.0, reason="no_model", details={})
+        with tracer.start_as_current_span("ai.anomaly_detection") as span:
+            span.set_attribute("agent_id", str(agent_id))
+            model = self._models.get(agent_id)
+            if model is None and not self._load_model(agent_id):
+                result = AnomalyResult(is_anomaly=False, score=0.0, reason="no_model", details={})
+                _record_anomaly_span(span, result)
+                return result
 
-        model = self._models.get(agent_id)
-        if model is None:
-            return AnomalyResult(is_anomaly=False, score=0.0, reason="no_model", details={})
+            model = self._models.get(agent_id)
+            if model is None:
+                result = AnomalyResult(is_anomaly=False, score=0.0, reason="no_model", details={})
+                _record_anomaly_span(span, result)
+                return result
 
-        feature_vector = np.array(
-            [
+            feature_vector = np.array(
                 [
-                    float(snapshot["cpu_percent"]),
-                    float(snapshot["memory_percent"]),
-                    float(snapshot["disk_percent"]),
-                    float(snapshot["net_bytes_in"]),
-                    float(snapshot["net_bytes_out"]),
-                ]
-            ],
-            dtype=float,
-        )
+                    [
+                        float(snapshot["cpu_percent"]),
+                        float(snapshot["memory_percent"]),
+                        float(snapshot["disk_percent"]),
+                        float(snapshot["net_bytes_in"]),
+                        float(snapshot["net_bytes_out"]),
+                    ]
+                ],
+                dtype=float,
+            )
 
-        prediction = int(model.predict(feature_vector)[0])
-        decision_score = float(model.decision_function(feature_vector)[0])
-        anomaly_score = _normalize_anomaly_score(decision_score)
-        reason = self.get_contributing_metric(snapshot=snapshot, agent_id=agent_id)
-        deviations = self._compute_deviations(snapshot=snapshot, agent_id=agent_id)
-        highest_metric = max(deviations, key=deviations.get) if deviations else "none"
+            prediction = int(model.predict(feature_vector)[0])
+            decision_score = float(model.decision_function(feature_vector)[0])
+            anomaly_score = _normalize_anomaly_score(decision_score)
+            reason = self.get_contributing_metric(snapshot=snapshot, agent_id=agent_id)
+            deviations = self._compute_deviations(snapshot=snapshot, agent_id=agent_id)
+            highest_metric = max(deviations, key=deviations.get) if deviations else "none"
 
-        return AnomalyResult(
-            is_anomaly=prediction == -1,
-            score=anomaly_score if prediction == -1 else 0.0,
-            reason=reason if prediction == -1 else "none",
-            details={
-                "decision_score": decision_score,
-                "primary_metric": highest_metric,
-                "deviations": deviations,
-                "rolling_mean": self._rolling_means.get(agent_id, {}),
-            },
-        )
+            result = AnomalyResult(
+                is_anomaly=prediction == -1,
+                score=anomaly_score if prediction == -1 else 0.0,
+                reason=reason if prediction == -1 else "none",
+                details={
+                    "decision_score": decision_score,
+                    "primary_metric": highest_metric,
+                    "deviations": deviations,
+                    "rolling_mean": self._rolling_means.get(agent_id, {}),
+                },
+            )
+            _record_anomaly_span(span, result)
+            return result
 
     def get_contributing_metric(
         self,
@@ -315,6 +325,12 @@ def _normalize_anomaly_score(decision_score: float) -> float:
     if inverted == 0.0:
         return 0.0
     return round(min(1.0, inverted / (inverted + 1.0)), 4)
+
+
+def _record_anomaly_span(span: Any, result: AnomalyResult) -> None:
+    span.set_attribute("is_anomaly", result.is_anomaly)
+    span.set_attribute("score", float(result.score))
+    span.set_attribute("reason", result.reason)
 
 
 def _normalize_datetime(value: datetime) -> datetime:

@@ -32,11 +32,17 @@ async function handleProxy(request: NextRequest, path: string[]) {
   });
 
   const responseBody = await response.text();
+  const responseHeaders = new Headers({
+    "Content-Type": response.headers.get("content-type") ?? "application/json"
+  });
+  const traceId = response.headers.get("x-trace-id");
+  if (traceId) {
+    responseHeaders.set("X-Trace-ID", traceId);
+  }
+
   return new NextResponse(responseBody, {
     status: response.status,
-    headers: {
-      "Content-Type": response.headers.get("content-type") ?? "application/json"
-    }
+    headers: responseHeaders
   });
 }
 

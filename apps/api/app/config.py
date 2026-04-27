@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     redis_url: str = Field(alias="REDIS_URL")
     secret_key: str = Field(alias="SECRET_KEY", min_length=32)
     groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    otel_exporter_otlp_endpoint: str = Field(
+        default="http://localhost:4317",
+        alias="OTEL_EXPORTER_OTLP_ENDPOINT",
+    )
+    otel_enabled: bool = Field(default=True, alias="OTEL_ENABLED")
     allowed_origins: list[str] = Field(default_factory=list, alias="ALLOWED_ORIGINS")
     debug: bool = Field(default=False, alias="DEBUG")
 

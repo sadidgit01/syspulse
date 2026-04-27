@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from opentelemetry import trace
 from sqlalchemy import desc, func, insert, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,7 @@ from app.schemas.metric import (
 )
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 class MetricService:
@@ -28,67 +30,73 @@ class MetricService:
         agent: Agent,
         payload: MetricBatchIngestRequest,
     ) -> int:
-        records = [
-            {
-                "org_id": agent.org_id,
-                "agent_id": agent.id,
-                "time": item.timestamp,
-                "cpu": item.cpu_percent,
-                "memory": item.memory_percent,
-                "disk": item.disk_percent,
-                "net_in": item.net_bytes_in,
-                "net_out": item.net_bytes_out,
-            }
-            for item in payload.root
-        ]
         latest_snapshot = max(payload.root, key=lambda item: item.timestamp)
-        agent.last_seen = latest_snapshot.timestamp
+        with tracer.start_as_current_span("metric.ingest") as span:
+            span.set_attribute("agent_id", str(agent.id))
+            span.set_attribute("org_id", str(agent.org_id))
+            span.set_attribute("batch_size", len(payload.root))
+            span.set_attribute("timestamp", latest_snapshot.timestamp.isoformat())
 
-        try:
-            await session.execute(insert(Metric), records)
-            await session.commit()
-        except IntegrityError as exc:
-            await session.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="One or more metric snapshots conflict with existing records.",
-            ) from exc
-
-        try:
-            await publish_json(
-                metrics_channel(agent.org_id),
+            records = [
                 {
-                    "agent_id": str(agent.id),
-                    "org_id": str(agent.org_id),
-                    "timestamp": latest_snapshot.timestamp.isoformat(),
-                    "cpu_percent": latest_snapshot.cpu_percent,
-                    "memory_percent": latest_snapshot.memory_percent,
-                    "disk_percent": latest_snapshot.disk_percent,
-                    "net_bytes_in": latest_snapshot.net_bytes_in,
-                    "net_bytes_out": latest_snapshot.net_bytes_out,
-                },
-            )
-        except Exception:
-            logger.exception("Failed to publish metric update for org %s", agent.org_id)
+                    "org_id": agent.org_id,
+                    "agent_id": agent.id,
+                    "time": item.timestamp,
+                    "cpu": item.cpu_percent,
+                    "memory": item.memory_percent,
+                    "disk": item.disk_percent,
+                    "net_in": item.net_bytes_in,
+                    "net_out": item.net_bytes_out,
+                }
+                for item in payload.root
+            ]
+            agent.last_seen = latest_snapshot.timestamp
 
-        try:
-            latest_snapshot_payload = _build_snapshot_payload(agent, latest_snapshot)
-            anomaly = anomaly_detector.predict(agent.id, latest_snapshot_payload)
-            if anomaly.is_anomaly:
-                event = await anomaly_detector.record_event(
-                    session=session,
-                    org_id=agent.org_id,
-                    agent_id=agent.id,
-                    result=anomaly,
-                    snapshot=latest_snapshot_payload,
+            try:
+                await session.execute(insert(Metric), records)
+                await session.commit()
+            except IntegrityError as exc:
+                await session.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="One or more metric snapshots conflict with existing records.",
+                ) from exc
+
+            try:
+                await publish_json(
+                    metrics_channel(agent.org_id),
+                    {
+                        "agent_id": str(agent.id),
+                        "org_id": str(agent.org_id),
+                        "timestamp": latest_snapshot.timestamp.isoformat(),
+                        "cpu_percent": latest_snapshot.cpu_percent,
+                        "memory_percent": latest_snapshot.memory_percent,
+                        "disk_percent": latest_snapshot.disk_percent,
+                        "net_bytes_in": latest_snapshot.net_bytes_in,
+                        "net_bytes_out": latest_snapshot.net_bytes_out,
+                    },
                 )
-                from app.tasks.anomaly_task import enrich_anomaly_explanation
+            except Exception:
+                logger.exception("Failed to publish metric update for org %s", agent.org_id)
 
-                enrich_anomaly_explanation.delay(str(event.id))
-        except Exception:
-            logger.exception("Failed to process anomaly detection for agent %s", agent.id)
+            try:
+                latest_snapshot_payload = _build_snapshot_payload(agent, latest_snapshot)
+                anomaly = anomaly_detector.predict(agent.id, latest_snapshot_payload)
+                if anomaly.is_anomaly:
+                    event = await anomaly_detector.record_event(
+                        session=session,
+                        org_id=agent.org_id,
+                        agent_id=agent.id,
+                        result=anomaly,
+                        snapshot=latest_snapshot_payload,
+                    )
+                    from app.tasks.anomaly_task import enrich_anomaly_explanation
 
-        return len(records)
+                    enrich_anomaly_explanation.delay(str(event.id))
+            except Exception:
+                logger.exception("Failed to process anomaly detection for agent %s", agent.id)
+
+            return len(records)
 
     @staticmethod
     async def list_metrics(

@@ -3,6 +3,7 @@
 import { LogOut, MoonStar, SunMedium, Wifi, WifiOff } from "lucide-react";
 import { useState } from "react";
 import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +14,10 @@ import { cn, getStatusColor, titleCaseWsStatus } from "@/lib/utils";
 
 export function Topbar() {
   const wsStatus = useSysPulseStore((state) => state.wsStatus);
+  const lastTraceId = useSysPulseStore((state) => state.lastTraceIds[0] ?? null);
   const { resolvedTheme, setTheme } = useTheme();
   const session = useSession();
+  const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const isDark = resolvedTheme !== "light";
@@ -67,6 +70,18 @@ export function Topbar() {
             </span>
             Stream {titleCaseWsStatus(wsStatus)}
           </div>
+
+          {lastTraceId ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/dashboard/traces/${lastTraceId}`)}
+              className="hidden rounded-2xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-left text-xs text-blue-100 transition-colors hover:border-blue-400/40 hover:bg-blue-500/15 xl:block"
+              title={lastTraceId}
+            >
+              <span className="text-slate-400">Last trace</span>
+              <span className="ml-2 font-mono">{lastTraceId.slice(0, 10)}...</span>
+            </button>
+          ) : null}
 
           <Button
             variant="outline"
