@@ -23,6 +23,7 @@ class Agent(Base):
     hostname: Mapped[str] = mapped_column(String(255), nullable=False)
     os: Mapped[str] = mapped_column(String(64), nullable=False)
     arch: Mapped[str] = mapped_column(String(64), nullable=False)
+    cert_fingerprint: Mapped[str | None] = mapped_column(String(95), nullable=True, index=True)
     last_seen: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import uuid
+import gzip
+import hmac
+import hashlib
 from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -174,6 +177,58 @@ async def get_current_agent(
             detail="Agent token is no longer valid.",
         )
     return AgentIdentity(agent_id=agent.id, org_id=agent.org_id)
+
+
+async def verify_agent_signature(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> None:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication credentials were not provided.",
+        )
+
+    claims = decode_token(credentials.credentials)
+    if claims.token_type != TokenType.AGENT or claims.org_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Agent token required.",
+        )
+
+    signature_header = request.headers.get("X-SysPulse-Signature", "").strip()
+    if not signature_header:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="missing signature",
+        )
+    scheme, _, provided_signature = signature_header.partition("=")
+    if scheme != "hmac-sha256" or not provided_signature:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid signature",
+        )
+
+    raw_body = await request.body()
+    expected_signature = hmac.new(
+        credentials.credentials.encode("utf-8"),
+        raw_body,
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(provided_signature, expected_signature):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="invalid signature",
+        )
+
+    if request.headers.get("Content-Encoding", "").lower() == "gzip":
+        try:
+            request._body = gzip.decompress(raw_body)  # noqa: SLF001
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="invalid gzip payload",
+            ) from exc
 
 
 async def get_current_user(

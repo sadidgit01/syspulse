@@ -12,7 +12,8 @@ export interface CliConfig {
 
 const CONFIG_DIR = path.join(os.homedir(), ".syspulse");
 const CONFIG_PATH = path.join(CONFIG_DIR, "config.json");
-const AGENT_DIR = path.join(CONFIG_DIR, "python_agent");
+const AGENT_BIN_DIR = path.join(CONFIG_DIR, "bin");
+const AGENT_CERT_DIR = path.join(CONFIG_DIR, "certs");
 const AGENT_ENV_PATH = path.join(CONFIG_DIR, "agent.env");
 
 export async function ensureCliHome(): Promise<void> {
@@ -43,7 +44,19 @@ export function getConfigPath(): string {
 }
 
 export function getAgentInstallDir(): string {
-  return AGENT_DIR;
+  return AGENT_BIN_DIR;
+}
+
+export function getAgentBinDir(): string {
+  return AGENT_BIN_DIR;
+}
+
+export function getAgentCertDir(): string {
+  return AGENT_CERT_DIR;
+}
+
+export function getAgentBinaryPath(isWindows = process.platform === "win32"): string {
+  return path.join(AGENT_BIN_DIR, isWindows ? "syspulse-agent.exe" : "syspulse-agent");
 }
 
 export function getAgentEnvPath(): string {

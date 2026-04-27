@@ -7,10 +7,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_agent, get_user_from_access_token, require_role
+from app.auth import get_current_agent, get_user_from_access_token, require_role, verify_agent_signature
 from app.database import get_session
 from app.models import Agent, UserRole
 from app.redis_client import create_pubsub, logs_channel
@@ -33,10 +34,19 @@ router = APIRouter()
 
 @router.post("/ingest/logs", response_model=IngestAcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def ingest_logs(
-    payload: LogBatchIngestRequest,
+    request: Request,
+    _: None = Depends(verify_agent_signature),
     identity: AgentIdentity = Depends(get_current_agent),
     session: AsyncSession = Depends(get_session),
 ) -> IngestAcceptedResponse:
+    try:
+        payload = LogBatchIngestRequest.model_validate(await request.json())
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=exc.errors(),
+        ) from exc
+
     agent = await session.scalar(
         select(Agent).where(
             Agent.id == identity.agent_id,

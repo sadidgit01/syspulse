@@ -22,6 +22,14 @@ class AgentRegistrationResponse(BaseModel):
     agent_token: str
 
 
+class AgentCertBundleResponse(BaseModel):
+    agent_cert_pem: str
+    agent_key_pem: str
+    ca_cert_pem: str
+    expires_at: datetime
+    fingerprint: str
+
+
 class AgentRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

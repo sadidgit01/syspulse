@@ -3,6 +3,7 @@
 import minimist from "minimist";
 
 import { runInstall } from "./commands/install";
+import { runRotateCert } from "./commands/rotate-cert";
 import { runStatus } from "./commands/status";
 import { logger } from "./lib/logger";
 
@@ -40,6 +41,9 @@ async function main() {
       case "status":
         await runStatus(argv["access-token"]);
         break;
+      case "rotate-cert":
+        await runRotateCert();
+        break;
       default:
         printHelp();
         process.exitCode = 1;
@@ -54,8 +58,9 @@ async function main() {
 function printHelp() {
   logger.banner();
   logger.info("Usage:");
-  logger.info("  syspulse-agent install --server <url> --token <org_token> [--access-token <user_access_token>] [--dev]");
+  logger.info("  syspulse-agent install --server <url> --token <org_token> [--access-token <user_access_token>]");
   logger.info("  syspulse-agent status [--access-token <user_access_token>]");
+  logger.info("  syspulse-agent rotate-cert");
 }
 
 void main();

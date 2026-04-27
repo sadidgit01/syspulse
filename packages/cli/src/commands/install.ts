@@ -1,17 +1,22 @@
-import { getAgentEnvPath, getAgentInstallDir, saveConfig } from "../config";
+import fs from "node:fs/promises";
+
+import {
+  getAgentBinDir,
+  getAgentBinaryPath,
+  getAgentCertDir,
+  getAgentEnvPath,
+  saveConfig
+} from "../config";
 import {
   checkHealth,
-  downloadAgentBundle,
+  getAgentCert,
   listAgents,
-  registerAgent
+  registerAgent,
+  saveCertificateBundle
 } from "../lib/api";
 import { logger } from "../lib/logger";
-import { detectPlatform } from "../lib/platform";
-import {
-  detectPythonRuntime,
-  installPythonDependencies,
-  installService
-} from "../lib/service";
+import { detectPlatform, type PlatformInfo } from "../lib/platform";
+import { installService } from "../lib/service";
 
 export interface InstallOptions {
   server: string;
@@ -20,6 +25,8 @@ export interface InstallOptions {
   dev?: boolean;
   interval?: number;
 }
+
+const releaseBaseUrl = "https://github.com/sadidgit01/syspulse/releases/latest/download";
 
 export async function runInstall(options: InstallOptions): Promise<void> {
   if (!options.server || !options.token) {
@@ -34,6 +41,9 @@ export async function runInstall(options: InstallOptions): Promise<void> {
 
   const platform = detectPlatform();
   const interval = options.interval ?? 5;
+  const binaryName = getReleaseBinaryName(platform);
+  const agentBinaryPath = getAgentBinaryPath(platform.os === "windows");
+  const certDir = getAgentCertDir();
   logger.step(`Detected ${platform.os} (${platform.arch}) on ${platform.hostname}`);
 
   logger.step("Checking SysPulse server health");
@@ -49,6 +59,19 @@ export async function runInstall(options: InstallOptions): Promise<void> {
   });
   logger.success(`Agent registered as ${registration.agent_id}`);
 
+  logger.step(`Downloading Go agent binary (${binaryName})`);
+  await downloadReleaseBinary(binaryName, agentBinaryPath, platform.os === "windows");
+  logger.success(`Go agent installed at ${agentBinaryPath}`);
+
+  logger.step("Installing mTLS certificates");
+  const certBundle = await getAgentCert(
+    options.server,
+    registration.agent_id,
+    registration.agent_token
+  );
+  await saveCertificateBundle(certDir, certBundle);
+  logger.success("🔐 mTLS certificates installed");
+
   logger.step("Saving local agent configuration");
   await saveConfig({
     server: options.server,
@@ -58,28 +81,11 @@ export async function runInstall(options: InstallOptions): Promise<void> {
     installedAt: new Date().toISOString()
   });
 
-  const agentDir = getAgentInstallDir();
-  logger.step(options.dev ? "Copying local Python agent bundle" : "Downloading Python agent bundle");
-  await downloadAgentBundle({
-    server: options.server,
-    destinationDir: agentDir,
-    devMode: options.dev ?? false
-  });
-  logger.success(`Python agent ready at ${agentDir}`);
-
-  logger.step("Detecting Python runtime");
-  const pythonRuntime = await detectPythonRuntime();
-  logger.success(`Using ${pythonRuntime.displayName}`);
-
-  logger.step("Installing Python agent dependencies");
-  await installPythonDependencies(agentDir, pythonRuntime);
-  logger.success("Python dependencies installed");
-
   logger.step("Installing background service");
   await installService({
     platform,
-    agentDir,
-    pythonRuntime,
+    agentBinaryPath,
+    certDir,
     server: options.server,
     agentToken: registration.agent_token,
     interval
@@ -108,6 +114,91 @@ export async function runInstall(options: InstallOptions): Promise<void> {
   logger.info(`Agent ID: ${registration.agent_id}`);
   logger.info(`View in dashboard: ${options.server.replace(/\/$/, "")}/dashboard`);
   logger.info(`Agent env file: ${getAgentEnvPath()}`);
+  logger.info(`Cert directory: ${certDir}`);
+}
+
+export function getReleaseBinaryName(platform: PlatformInfo): string {
+  if (platform.os === "linux" && platform.arch === "amd64") {
+    return "syspulse-agent-linux-amd64";
+  }
+  if (platform.os === "linux" && platform.arch === "arm64") {
+    return "syspulse-agent-linux-arm64";
+  }
+  if (platform.os === "windows" && platform.arch === "amd64") {
+    return "syspulse-agent-windows-amd64.exe";
+  }
+  if (platform.os === "darwin" && platform.arch === "amd64") {
+    return "syspulse-agent-darwin-amd64";
+  }
+  if (platform.os === "darwin" && platform.arch === "arm64") {
+    return "syspulse-agent-darwin-arm64";
+  }
+  throw new Error(`Unsupported platform: ${platform.os}/${platform.arch}`);
+}
+
+async function downloadReleaseBinary(
+  binaryName: string,
+  destinationPath: string,
+  isWindows: boolean
+): Promise<void> {
+  await fs.mkdir(getAgentBinDir(), { recursive: true });
+  const response = await fetch(`${releaseBaseUrl}/${binaryName}`);
+  if (!response.ok || response.body === null) {
+    throw new Error(`Unable to download ${binaryName} from GitHub Releases.`);
+  }
+
+  const totalBytes = Number(response.headers.get("content-length") ?? "0");
+  const tempPath = `${destinationPath}.download`;
+  const fileHandle = await fs.open(tempPath, "w");
+  let downloadedBytes = 0;
+
+  try {
+    const reader = response.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      const chunk = Buffer.from(value);
+      await fileHandle.write(chunk);
+      downloadedBytes += chunk.byteLength;
+      renderProgress(downloadedBytes, totalBytes);
+    }
+  } finally {
+    await fileHandle.close();
+  }
+
+  process.stdout.write("\n");
+  await fs.rm(destinationPath, { force: true });
+  await fs.rename(tempPath, destinationPath);
+  if (!isWindows) {
+    await fs.chmod(destinationPath, 0o755);
+  }
+}
+
+function renderProgress(downloadedBytes: number, totalBytes: number): void {
+  if (totalBytes <= 0) {
+    process.stdout.write(`\rDownloaded ${formatBytes(downloadedBytes)}`);
+    return;
+  }
+
+  const width = 24;
+  const ratio = Math.min(downloadedBytes / totalBytes, 1);
+  const filled = Math.round(ratio * width);
+  const bar = "#".repeat(filled) + "-".repeat(width - filled);
+  process.stdout.write(
+    `\r[${bar}] ${Math.round(ratio * 100)}% (${formatBytes(downloadedBytes)}/${formatBytes(totalBytes)})`
+  );
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 async function wait(milliseconds: number): Promise<void> {
