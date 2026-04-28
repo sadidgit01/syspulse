@@ -1,9 +1,12 @@
 "use client";
 
-import { Activity, BellRing, LayoutDashboard, ScrollText, Server } from "lucide-react";
+import { Activity, BellRing, Flame, LayoutDashboard, ScrollText, Server } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 
+import { listIncidents } from "@/lib/api";
+import { useSysPulseStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 const navigationItems = [
@@ -11,11 +14,48 @@ const navigationItems = [
   { href: "/dashboard#agents", label: "Agents", icon: Server },
   { href: "/dashboard/logs", label: "Logs", icon: ScrollText },
   { href: "/dashboard/traces", label: "Traces", icon: Activity },
-  { href: "/dashboard#alerts", label: "Alerts", icon: BellRing }
+  { href: "/dashboard/incidents", label: "Incidents", icon: Flame },
+  { href: "/dashboard/alerts", label: "Alerts", icon: BellRing }
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const openIncidentCount = useSysPulseStore((state) => state.openIncidentCount);
+  const setOpenIncidentCount = useSysPulseStore((state) => state.setOpenIncidentCount);
+
+  useEffect(() => {
+    let active = true;
+    let intervalId: number | undefined;
+
+    const loadOpenCount = async () => {
+      try {
+        const response = await listIncidents({
+          status: "open",
+          limit: 1,
+          offset: 0
+        });
+        if (active) {
+          setOpenIncidentCount(response.total);
+        }
+      } catch {
+        if (active) {
+          setOpenIncidentCount(0);
+        }
+      }
+    };
+
+    void loadOpenCount();
+    intervalId = window.setInterval(() => {
+      void loadOpenCount();
+    }, 30_000);
+
+    return () => {
+      active = false;
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [setOpenIncidentCount]);
 
   return (
     <aside className="border-b border-white/6 px-4 py-4 lg:border-b-0 lg:border-r lg:border-white/6 lg:px-6 lg:py-8">
@@ -37,11 +77,7 @@ export function Sidebar() {
                 ? pathname === "/dashboard"
                 : href.includes("#")
                   ? pathname === "/dashboard"
-                  : href === "/dashboard/traces"
-                    ? pathname.startsWith("/dashboard/traces")
-                    : href === "/dashboard/logs"
-                      ? pathname === "/dashboard/logs"
-                  : pathname === "/dashboard";
+                  : pathname.startsWith(href);
 
             return (
               <Link
@@ -65,6 +101,11 @@ export function Sidebar() {
                   <Icon className="h-4 w-4" />
                 </div>
                 <span>{label}</span>
+                {label === "Incidents" && openIncidentCount > 0 ? (
+                  <span className="ml-auto inline-flex min-w-6 items-center justify-center rounded-full border border-red-500/30 bg-red-500/12 px-2 py-1 text-[11px] font-semibold text-red-100">
+                    {openIncidentCount}
+                  </span>
+                ) : null}
               </Link>
             );
           })}

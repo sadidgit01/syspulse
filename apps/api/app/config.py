@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     redis_url: str = Field(alias="REDIS_URL")
     secret_key: str = Field(alias="SECRET_KEY", min_length=32)
     groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    vapid_public_key: str | None = Field(default=None, alias="VAPID_PUBLIC_KEY")
+    vapid_private_key: str | None = Field(default=None, alias="VAPID_PRIVATE_KEY")
     otel_exporter_otlp_endpoint: str = Field(
         default="http://localhost:4317",
         alias="OTEL_EXPORTER_OTLP_ENDPOINT",

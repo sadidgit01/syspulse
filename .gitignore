@@ -210,6 +210,8 @@ __marimo__/
 node_modules/
 .next/
 npm-debug.log*
+apps/web/public/sw.js
+apps/web/public/workbox-*.js
 
 # Local runtime artifacts
 .tmp/

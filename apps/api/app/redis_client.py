@@ -48,6 +48,14 @@ def forecasts_channel(org_id: UUID | str) -> str:
     return f"forecasts:{org_id}"
 
 
+def incidents_channel(org_id: UUID | str) -> str:
+    return f"incidents:{org_id}"
+
+
+def alerts_channel(org_id: UUID | str) -> str:
+    return f"alerts:{org_id}"
+
+
 def ai_query_rate_limit_key(user_id: UUID | str) -> str:
     return f"ai_query:rate_limit:{user_id}"
 

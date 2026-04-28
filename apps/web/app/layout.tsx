@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
 import "@/app/globals.css";
@@ -11,7 +11,19 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "SysPulse",
-  description: "AI-native observability cockpit for live server monitoring."
+  description: "AI-native observability cockpit for live server monitoring.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }]
+  }
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3b82f6"
 };
 
 export default function RootLayout({

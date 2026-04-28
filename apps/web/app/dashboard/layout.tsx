@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AIQueryBox } from "@/components/ai/AIQueryBox";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { PushSubscriptionRegistrar } from "@/components/providers/push-subscription-registrar";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { getAuthSession } from "@/lib/auth";
 
@@ -18,6 +19,7 @@ export default async function DashboardLayout({
 
   return (
     <SessionProvider session={session}>
+      <PushSubscriptionRegistrar />
       <div className="min-h-screen bg-transparent lg:grid lg:grid-cols-[272px_1fr]">
         <Sidebar />
         <div className="flex min-h-screen flex-col">

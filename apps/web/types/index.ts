@@ -5,9 +5,23 @@ export type WsStatus =
   | "reconnecting"
   | "disconnected"
   | "error";
+
 export type UserRole = "admin" | "viewer" | "alert_manager";
 export type LogLevel = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 export type ForecastMetric = "cpu_percent" | "memory_percent" | "disk_percent";
+export type IncidentSeverity = "low" | "medium" | "high" | "critical";
+export type IncidentStatus = "open" | "investigating" | "resolved";
+export type IncidentEventType =
+  | "metric_spike"
+  | "log_error"
+  | "anomaly"
+  | "alert_fired"
+  | "correlation"
+  | "forecast_warning"
+  | "comment"
+  | "status_change";
+export type AlertRuleConditionType = "threshold" | "relative" | "composite" | "anomaly_score";
+export type AlertChannelType = "slack" | "discord" | "email" | "webhook";
 
 export interface Agent {
   id: string;
@@ -121,14 +135,6 @@ export type CorrelationEvent =
       data: LogCorrelationData;
     };
 
-export interface AlertRule {
-  id: string;
-  name: string;
-  metric: "cpuPercent" | "memoryPercent" | "diskPercent";
-  threshold: number;
-  severity: "warning" | "critical";
-}
-
 export interface AnomalyEvent {
   id: string;
   orgId: string;
@@ -160,6 +166,105 @@ export interface ForecastAlert {
   explanation: string | null;
   createdAt: string;
   isSent: boolean;
+}
+
+export interface IncidentEvent {
+  eventId: string;
+  timestamp: string;
+  type: IncidentEventType;
+  title: string;
+  detail: string;
+  metricSnapshot: {
+    cpu: number;
+    memory: number;
+    disk: number;
+  } | null;
+  severity: IncidentSeverity;
+}
+
+export interface Incident {
+  id: string;
+  orgId: string;
+  agentId: string;
+  title: string;
+  status: IncidentStatus;
+  severity: IncidentSeverity;
+  startedAt: string;
+  resolvedAt: string | null;
+  timelineEvents: IncidentEvent[];
+  triggerType: string;
+  triggerId: string | null;
+  summary: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AlertThresholdCondition {
+  metric: ForecastMetric;
+  operator: ">" | "<" | ">=" | "<=";
+  value: number;
+  duration_minutes: number;
+}
+
+export interface AlertRelativeCondition {
+  metric: ForecastMetric;
+  operator: ">" | "<";
+  percent_change: number;
+  baseline_hours: number;
+}
+
+export interface AlertCompositeSubCondition {
+  metric: ForecastMetric;
+  operator: ">" | "<" | ">=" | "<=";
+  value: number;
+}
+
+export interface AlertCompositeCondition {
+  operator: "AND" | "OR";
+  conditions: AlertCompositeSubCondition[];
+}
+
+export interface AlertAnomalyScoreCondition {
+  min_score: number;
+  reasons: string[];
+}
+
+export type AlertCondition =
+  | AlertThresholdCondition
+  | AlertRelativeCondition
+  | AlertCompositeCondition
+  | AlertAnomalyScoreCondition;
+
+export type AlertChannel =
+  | {
+      type: "slack" | "discord";
+      webhook_url: string;
+    }
+  | {
+      type: "email";
+      address: string;
+    }
+  | {
+      type: "webhook";
+      url: string;
+      method: "POST" | "PUT" | "PATCH";
+    };
+
+export interface AlertRule {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  isEnabled: boolean;
+  conditionType: AlertRuleConditionType;
+  condition: AlertCondition;
+  severity: IncidentSeverity;
+  channels: AlertChannel[];
+  cooldownMinutes: number;
+  lastFiredAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserProfile {
@@ -265,6 +370,67 @@ export interface ForecastAlertBackendResponse {
   explanation: string | null;
   created_at: string;
   is_sent: boolean;
+}
+
+export interface IncidentEventBackendResponse {
+  event_id: string;
+  timestamp: string;
+  type: IncidentEventType;
+  title: string;
+  detail: string;
+  metric_snapshot: {
+    cpu: number;
+    memory: number;
+    disk: number;
+  } | null;
+  severity: IncidentSeverity;
+}
+
+export interface IncidentBackendResponse {
+  id: string;
+  org_id: string;
+  agent_id: string;
+  title: string;
+  status: IncidentStatus;
+  severity: IncidentSeverity;
+  started_at: string;
+  resolved_at: string | null;
+  timeline_events: IncidentEventBackendResponse[];
+  trigger_type: string;
+  trigger_id: string | null;
+  summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IncidentListBackendResponse {
+  incidents: IncidentBackendResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AlertRuleBackendResponse {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  is_enabled: boolean;
+  condition_type: AlertRuleConditionType;
+  condition_json: AlertCondition;
+  severity: IncidentSeverity;
+  channels_json: AlertChannel[];
+  cooldown_minutes: number;
+  last_fired_at: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AlertRuleTestBackendResponse {
+  would_fire: boolean;
+  matching_agents: string[];
+  reason: string;
 }
 
 export interface AIQueryBackendResponse {

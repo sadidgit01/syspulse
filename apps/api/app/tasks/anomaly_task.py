@@ -7,8 +7,9 @@ from sqlalchemy import select
 from app.services.anomaly_detector import anomaly_detector
 from app.services.llm_explainer import llm_explainer
 from app.database import async_session_factory
-from app.models import Agent, AnomalyEvent, LogEntry, Metric
+from app.models import Agent, AnomalyEvent, IncidentSeverity, IncidentTriggerType, LogEntry, Metric
 from app.redis_client import anomalies_channel, publish_json
+from app.services.incident_service import IncidentService
 from app.tasks.celery_app import celery_app
 
 
@@ -130,4 +131,59 @@ async def _enrich_anomaly_explanation(event_id: uuid.UUID) -> str:
             },
         )
 
+        incident = await IncidentService.get_open_incident_for_agent(
+            session=session,
+            org_id=event.org_id,
+            agent_id=event.agent_id,
+        )
+        incident_event = {
+            "event_id": str(uuid.uuid4()),
+            "timestamp": event.created_at.isoformat(),
+            "type": "anomaly",
+            "title": f"Anomaly detected: {event.reason}",
+            "detail": explanation or f"Anomaly score {float(event.score):.2f}",
+            "metric_snapshot": {
+                "cpu": float((event.snapshot or {}).get("cpu_percent", 0.0)),
+                "memory": float((event.snapshot or {}).get("memory_percent", 0.0)),
+                "disk": float((event.snapshot or {}).get("disk_percent", 0.0)),
+            },
+            "severity": _incident_severity_from_score(float(event.score)).value,
+        }
+        if incident is None:
+            created = await IncidentService.create_incident(
+                session=session,
+                org_id=event.org_id,
+                agent_id=event.agent_id,
+                trigger_type=IncidentTriggerType.ANOMALY.value,
+                trigger_id=event.id,
+                severity=_incident_severity_from_score(float(event.score)),
+                initial_event=incident_event,
+            )
+            incident_id = created.id
+        else:
+            updated = await IncidentService.append_event(
+                session=session,
+                incident_id=incident.id,
+                org_id=event.org_id,
+                event=incident_event,
+            )
+            incident_id = updated.id
+
+        await IncidentService.auto_build_timeline(
+            session=session,
+            incident_id=incident_id,
+            org_id=event.org_id,
+            agent_id=event.agent_id,
+        )
+
     return explanation
+
+
+def _incident_severity_from_score(score: float) -> IncidentSeverity:
+    if score > 0.8:
+        return IncidentSeverity.CRITICAL
+    if score > 0.6:
+        return IncidentSeverity.HIGH
+    if score > 0.4:
+        return IncidentSeverity.MEDIUM
+    return IncidentSeverity.LOW

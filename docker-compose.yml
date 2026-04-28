@@ -54,6 +54,7 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+      target: dev
     restart: unless-stopped
     depends_on:
       postgres:
@@ -83,6 +84,7 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      target: dev
     restart: unless-stopped
     depends_on:
       api:
@@ -92,6 +94,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+      NEXT_PUBLIC_VAPID_KEY: ${NEXT_PUBLIC_VAPID_KEY}
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
       NEXT_TELEMETRY_DISABLED: "1"

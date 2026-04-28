@@ -76,6 +76,34 @@ class LLMExplainer:
             logger.exception("Failed to explain forecast alert.")
             return DEFAULT_EXPLANATION
 
+    def explain_incident(
+        self,
+        incident: dict[str, Any],
+        timeline_events: list[dict[str, Any]],
+    ) -> str:
+        try:
+            compact_timeline = _truncate_text(
+                json.dumps(timeline_events[:40], default=str, separators=(",", ":")),
+                MAX_INPUT_CHARS,
+            )
+            context = (
+                f"Incident {incident.get('title', 'incident')} on {incident.get('hostname', 'unknown-agent')}. "
+                f"Severity {incident.get('severity', 'unknown')}, status {incident.get('status', 'unknown')}. "
+                f"Timeline: {compact_timeline}"
+            )
+            return self._complete(
+                system_prompt=(
+                    "You are SysPulse, an infrastructure monitoring AI. "
+                    "Summarize this incident timeline in 2-3 sentences, focusing on what happened, "
+                    "what signals appeared first, and what the operator should pay attention to next. "
+                    "No markdown. No bullet points."
+                ),
+                user_prompt=context,
+            )
+        except Exception:
+            logger.exception("Failed to explain incident timeline.")
+            return DEFAULT_EXPLANATION
+
     def answer_query(
         self,
         org_id: str,

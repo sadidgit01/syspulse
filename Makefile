@@ -1,18 +1,40 @@
 COMPOSE = docker compose
+PROD_COMPOSE = docker compose -f docker-compose.prod.yml
 
-.PHONY: up down logs migrate seed
+.PHONY: up down logs migrate seed restart-api shell-api shell-db prod-up prod-down prod-logs prod-deploy
 
 up:
-	$(COMPOSE) up --build -d
+	$(COMPOSE) up -d
 
 down:
-	$(COMPOSE) down --remove-orphans
+	$(COMPOSE) down
 
 logs:
-	$(COMPOSE) logs -f postgres redis api web
+	$(COMPOSE) logs -f
 
 migrate:
-	$(COMPOSE) run --rm api alembic upgrade head
+	$(COMPOSE) exec api alembic upgrade head
 
 seed:
-	$(COMPOSE) run --rm api python -m app.seed
+	$(COMPOSE) exec api python -m app.seed
+
+restart-api:
+	$(COMPOSE) restart api
+
+shell-api:
+	$(COMPOSE) exec api bash
+
+shell-db:
+	$(COMPOSE) exec postgres psql -U syspulse syspulse
+
+prod-up:
+	$(PROD_COMPOSE) up -d
+
+prod-down:
+	$(PROD_COMPOSE) down
+
+prod-logs:
+	$(PROD_COMPOSE) logs -f
+
+prod-deploy:
+	git pull && $(PROD_COMPOSE) up -d --build

@@ -1,19 +1,22 @@
 import { create } from "zustand";
 
+import { createDefaultLogFilters, matchesLogFilters } from "@/lib/utils";
 import type {
   Agent,
+  AlertRule,
   AnomalyEvent,
   ForecastAlert,
+  Incident,
   LogEntry,
   LogFilters,
   MetricSnapshot,
   WsStatus
 } from "@/types";
-import { createDefaultLogFilters, matchesLogFilters } from "@/lib/utils";
 
 const MAX_SNAPSHOTS = 60;
 const MAX_LOGS = 500;
 const MAX_ANOMALIES = 50;
+const MAX_INCIDENTS = 50;
 const MAX_TRACE_IDS = 10;
 
 interface SysPulseStore {
@@ -22,6 +25,9 @@ interface SysPulseStore {
   logs: LogEntry[];
   anomalies: AnomalyEvent[];
   forecasts: ForecastAlert[];
+  incidents: Incident[];
+  alertRules: AlertRule[];
+  openIncidentCount: number;
   lastTraceIds: string[];
   logFilters: LogFilters;
   wsStatus: WsStatus;
@@ -32,6 +38,13 @@ interface SysPulseStore {
   setAnomalies: (events: AnomalyEvent[]) => void;
   addAnomaly: (event: AnomalyEvent) => void;
   setForecasts: (alerts: ForecastAlert[]) => void;
+  setIncidents: (incidents: Incident[]) => void;
+  addIncident: (incident: Incident) => void;
+  updateIncident: (incident: Incident) => void;
+  setAlertRules: (rules: AlertRule[]) => void;
+  upsertAlertRule: (rule: AlertRule) => void;
+  removeAlertRule: (ruleId: string) => void;
+  setOpenIncidentCount: (count: number) => void;
   addTraceId: (traceId: string) => void;
   setLogFilters: (nextFilters: Partial<LogFilters>) => void;
   resetLogFilters: () => void;
@@ -89,12 +102,42 @@ function sortForecasts(entries: ForecastAlert[]): ForecastAlert[] {
   });
 }
 
+function dedupeIncidents(entries: Incident[]): Incident[] {
+  const latestById = new Map<string, Incident>();
+  for (const entry of entries) {
+    const current = latestById.get(entry.id);
+    if (!current || Date.parse(entry.updatedAt) >= Date.parse(current.updatedAt)) {
+      latestById.set(entry.id, entry);
+    }
+  }
+  return Array.from(latestById.values());
+}
+
+function sortIncidents(entries: Incident[]): Incident[] {
+  return entries
+    .slice()
+    .sort((left, right) => Date.parse(right.startedAt) - Date.parse(left.startedAt));
+}
+
+function sortAlertRules(entries: AlertRule[]): AlertRule[] {
+  return entries
+    .slice()
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
+}
+
+function computeOpenIncidentCount(incidents: Incident[]): number {
+  return incidents.filter((incident) => incident.status === "open").length;
+}
+
 export const useSysPulseStore = create<SysPulseStore>((set) => ({
   agents: [],
   metrics: {},
   logs: [],
   anomalies: [],
   forecasts: [],
+  incidents: [],
+  alertRules: [],
+  openIncidentCount: 0,
   lastTraceIds: [],
   logFilters: createDefaultLogFilters(),
   wsStatus: "idle",
@@ -157,15 +200,62 @@ export const useSysPulseStore = create<SysPulseStore>((set) => ({
       anomalies: sortAnomalies(dedupeAnomalies(events)).slice(0, MAX_ANOMALIES)
     }),
   addAnomaly: (event) =>
-    set((state) => {
-      const nextEvents = sortAnomalies(
+    set((state) => ({
+      anomalies: sortAnomalies(
         dedupeAnomalies([event, ...state.anomalies]).slice(0, MAX_ANOMALIES)
-      );
-      return { anomalies: nextEvents };
-    }),
+      )
+    })),
   setForecasts: (alerts) =>
     set({
       forecasts: sortForecasts(alerts)
+    }),
+  setIncidents: (incidents) =>
+    set(() => {
+      const nextIncidents = sortIncidents(dedupeIncidents(incidents)).slice(0, MAX_INCIDENTS);
+      return {
+        incidents: nextIncidents,
+        openIncidentCount: computeOpenIncidentCount(nextIncidents)
+      };
+    }),
+  addIncident: (incident) =>
+    set((state) => {
+      const nextIncidents = sortIncidents(
+        dedupeIncidents([incident, ...state.incidents]).slice(0, MAX_INCIDENTS)
+      );
+      return {
+        incidents: nextIncidents,
+        openIncidentCount: computeOpenIncidentCount(nextIncidents)
+      };
+    }),
+  updateIncident: (incident) =>
+    set((state) => {
+      const nextIncidents = sortIncidents(
+        dedupeIncidents(
+          state.incidents.map((entry) => (entry.id === incident.id ? incident : entry)).concat(incident)
+        ).slice(0, MAX_INCIDENTS)
+      );
+      return {
+        incidents: nextIncidents,
+        openIncidentCount: computeOpenIncidentCount(nextIncidents)
+      };
+    }),
+  setAlertRules: (rules) =>
+    set({
+      alertRules: sortAlertRules(rules)
+    }),
+  upsertAlertRule: (rule) =>
+    set((state) => ({
+      alertRules: sortAlertRules(
+        state.alertRules.filter((entry) => entry.id !== rule.id).concat(rule)
+      )
+    })),
+  removeAlertRule: (ruleId) =>
+    set((state) => ({
+      alertRules: state.alertRules.filter((rule) => rule.id !== ruleId)
+    })),
+  setOpenIncidentCount: (count) =>
+    set({
+      openIncidentCount: count
     }),
   addTraceId: (traceId) =>
     set((state) => ({

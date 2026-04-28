@@ -8,6 +8,12 @@ celery_app = Celery(
     "syspulse",
     broker=settings.redis_url,
     backend=settings.redis_url,
+    include=[
+        "app.tasks.alert_task",
+        "app.tasks.anomaly_task",
+        "app.tasks.correlation_task",
+        "app.tasks.forecast_task",
+    ],
 )
 celery_app.conf.update(
     timezone="UTC",
@@ -24,6 +30,10 @@ celery_app.conf.update(
         "run-forecast-cycle-every-30-minutes": {
             "task": "syspulse.forecast.run_cycle",
             "schedule": 60.0 * 30.0,
+        },
+        "run-alert-cycle-every-60-seconds": {
+            "task": "syspulse.alert.run_cycle",
+            "schedule": 60.0,
         },
     },
 )
