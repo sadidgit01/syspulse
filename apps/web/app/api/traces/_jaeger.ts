@@ -1,9 +1,13 @@
 import type { Span, SpanLog, SpanLogField, TraceDetail, TraceListItem } from "@/types";
 
-const JAEGER_BASE_URL = (process.env.JAEGER_QUERY_URL ?? "http://jaeger:16686").replace(
-  /\/$/,
-  ""
-);
+const DEFAULT_JAEGER_URLS = [
+  process.env.JAEGER_QUERY_URL,
+  "http://127.0.0.1:16686",
+  "http://localhost:16686",
+  "http://jaeger:16686"
+]
+  .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+  .map((value) => value.replace(/\/$/, ""));
 
 interface JaegerTag {
   key?: unknown;
@@ -57,13 +61,7 @@ export async function fetchJaegerTraceList(query: URLSearchParams): Promise<Trac
     jaegerQuery.set("end", String(dateToMicroseconds(to)));
   }
 
-  const response = await fetch(`${JAEGER_BASE_URL}/api/traces?${jaegerQuery.toString()}`, {
-    cache: "no-store"
-  });
-  if (!response.ok) {
-    throw new Error(`Jaeger query failed with status ${response.status}.`);
-  }
-
+  const response = await fetchFromJaeger(`/api/traces?${jaegerQuery.toString()}`);
   const traces = extractTraceArray(await response.json());
   return traces
     .map(traceToListItem)
@@ -81,19 +79,37 @@ export async function fetchJaegerTraceList(query: URLSearchParams): Promise<Trac
 }
 
 export async function fetchJaegerTraceDetail(traceId: string): Promise<TraceDetail> {
-  const response = await fetch(`${JAEGER_BASE_URL}/api/traces/${encodeURIComponent(traceId)}`, {
-    cache: "no-store"
-  });
-  if (!response.ok) {
-    throw new Error(`Jaeger trace lookup failed with status ${response.status}.`);
-  }
-
+  const response = await fetchFromJaeger(`/api/traces/${encodeURIComponent(traceId)}`);
   const traces = extractTraceArray(await response.json());
   const trace = traces[0];
   if (!trace) {
     return { traceId, spans: [] };
   }
   return traceToDetail(trace);
+}
+
+async function fetchFromJaeger(path: string): Promise<Response> {
+  const errors: string[] = [];
+
+  for (const baseUrl of DEFAULT_JAEGER_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        cache: "no-store"
+      });
+      if (!response.ok) {
+        errors.push(`${baseUrl} returned ${response.status}`);
+        continue;
+      }
+      return response;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "unknown fetch error";
+      errors.push(`${baseUrl} failed: ${detail}`);
+    }
+  }
+
+  throw new Error(
+    `Jaeger is unreachable. Checked ${DEFAULT_JAEGER_URLS.join(", ")}. ${errors.join(" | ")}`
+  );
 }
 
 function extractTraceArray(payload: unknown): JaegerTrace[] {
