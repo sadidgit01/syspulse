@@ -60,7 +60,9 @@ class AgentService:
             .where(Agent.org_id == org_id)
             .order_by(Agent.hostname.asc())
         )
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=30)
+        # The development agent ships 30-second batches, so a small grace window
+        # prevents false offline flapping from scheduler or network jitter.
+        cutoff = datetime.now(timezone.utc) - timedelta(seconds=45)
         return [
             AgentListItem(
                 id=agent.id,

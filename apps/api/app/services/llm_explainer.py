@@ -16,9 +16,44 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 MODEL_NAME = "meta-llama/llama-4-scout-17b-16e-instruct"
-MAX_INPUT_CHARS = 2000
-MAX_OUTPUT_TOKENS = 200
+MAX_INPUT_CHARS = 10000
+MAX_SYSTEM_PROMPT_CHARS = 3000
+MAX_OUTPUT_TOKENS = 320
 DEFAULT_EXPLANATION = "Explanation unavailable."
+SYS_PULSE_QUERY_SYSTEM_PROMPT = """
+You are SysPulse, an expert infrastructure monitoring AI assistant
+with deep knowledge of Linux systems, DevOps, performance engineering,
+and site reliability engineering.
+
+You have real-time access to the user's infrastructure data:
+- Live metrics from all their servers
+- Recent error logs
+- AI-detected anomalies
+- Predictive forecasts
+- Active incidents
+
+Your personality:
+- Direct and confident, like a senior SRE who has seen everything
+- You use exact numbers from the context, never vague estimates
+- You explain WHY something is happening, not just what
+- You give actionable advice when something looks wrong
+- You can handle casual conversation but always bring it back to
+  infrastructure insight when relevant
+- You never say "I don't have context" -- you always work with what
+  you have and say what you can and cannot determine
+
+Response rules:
+- For greetings: respond warmly and give a 1-line health summary
+  e.g. "Hey! Your fleet looks healthy right now -- 1 node online,
+  CPU at 23%, memory at 86%. What do you want to dig into?"
+- For metric questions: use exact numbers, explain trends
+- For "is everything ok": give the health score + brief summary
+- For anomaly questions: reference actual anomaly events if any
+- For advice questions: give specific, actionable SRE advice
+- Keep responses under 150 words unless asked for detail
+- Never use bullet points unless the user asks for a list
+- Never say "based on the context provided" -- just answer naturally
+""".strip()
 
 settings = get_settings()
 
@@ -112,21 +147,9 @@ class LLMExplainer:
     ) -> str:
         del org_id
         try:
-            context = _truncate_text(
-                json.dumps(context_data, default=str, separators=(",", ":")),
-                MAX_INPUT_CHARS,
-            )
-            user_prompt = _truncate_text(
-                f"Context: {context}\nQuestion: {question.strip()}",
-                MAX_INPUT_CHARS,
-            )
             return self._complete(
-                system_prompt=(
-                    "You are SysPulse AI assistant. Answer questions about the user's infrastructure "
-                    "based only on the provided context. If the answer is not in context, say so. "
-                    "Be concise. No markdown."
-                ),
-                user_prompt=user_prompt,
+                system_prompt=SYS_PULSE_QUERY_SYSTEM_PROMPT,
+                user_prompt=_build_query_user_message(context_data=context_data, question=question),
             )
         except Exception:
             logger.exception("Failed to answer AI query.")
@@ -146,7 +169,10 @@ class LLMExplainer:
                 completion = client.chat.completions.create(
                     model=MODEL_NAME,
                     messages=[
-                        {"role": "system", "content": _truncate_text(system_prompt, 600)},
+                        {
+                            "role": "system",
+                            "content": _truncate_text(system_prompt, MAX_SYSTEM_PROMPT_CHARS),
+                        },
                         {"role": "user", "content": _truncate_text(user_prompt, MAX_INPUT_CHARS)},
                     ],
                     temperature=0.2,
@@ -213,6 +239,113 @@ def _top_log_messages(logs: list[dict[str, Any]]) -> list[str]:
         return []
     counts = Counter(messages)
     return [message for message, _ in counts.most_common(3)]
+
+
+def _build_query_user_message(context_data: dict[str, Any], question: str) -> str:
+    agents = context_data.get("agents", [])
+    health = context_data.get("system_health", {})
+    logs = context_data.get("logs", {})
+    anomalies = context_data.get("anomalies", [])
+    forecasts = context_data.get("forecasts", [])
+    incidents = context_data.get("incidents", [])
+
+    fleet_lines = "\n".join(_format_agent_line(agent) for agent in agents)
+    error_lines = "\n".join(_format_error_line(log) for log in logs.get("recent", [])[:5])
+    anomaly_lines = "\n".join(_format_anomaly_line(anomaly) for anomaly in anomalies)
+    forecast_lines = "\n".join(_format_forecast_line(forecast) for forecast in forecasts)
+    incident_lines = "\n".join(_format_incident_line(incident) for incident in incidents)
+
+    return _truncate_text(
+        f"""
+Current time: {context_data.get("current_time", datetime.utcnow().isoformat())}
+
+FLEET STATUS:
+{fleet_lines or "No agents registered"}
+
+SYSTEM HEALTH SCORE: {health.get("score", 0)}/100 ({health.get("label", "Unknown")})
+SYSTEM HEALTH ISSUES:
+{_format_issues(health.get("issues", []))}
+
+RECENT ERRORS ({logs.get("count_last_hour", 0)} in last hour):
+{error_lines or "None detected"}
+
+ACTIVE ANOMALIES:
+{anomaly_lines or "None detected"}
+
+ACTIVE FORECASTS:
+{forecast_lines or "All metrics within safe range"}
+
+OPEN INCIDENTS:
+{incident_lines or "No active incidents"}
+
+USER QUESTION: {question.strip()}
+""".strip(),
+        MAX_INPUT_CHARS,
+    )
+
+
+def _format_agent_line(agent: dict[str, Any]) -> str:
+    metrics = agent.get("metrics", {})
+    cpu = metrics.get("cpu_percent", {})
+    memory = metrics.get("memory_percent", {})
+    disk = metrics.get("disk_percent", {})
+    return (
+        f"Agent {agent.get('hostname', 'unknown-agent')} ({agent.get('os', 'unknown')}): "
+        f"{agent.get('status', 'unknown')}, "
+        f"CPU {_metric_value(cpu, 'current')}% (avg {_metric_value(cpu, 'average_60m')}%, "
+        f"trend: {cpu.get('trend', 'unknown')}), "
+        f"Memory {_metric_value(memory, 'current')}% (avg {_metric_value(memory, 'average_60m')}%, "
+        f"trend: {memory.get('trend', 'unknown')}), "
+        f"Disk {_metric_value(disk, 'current')}% "
+        f"(avg {_metric_value(disk, 'average_60m')}%, trend: {disk.get('trend', 'unknown')}, "
+        f"peak: {disk.get('peak_time', 'unknown')})"
+    )
+
+
+def _format_error_line(log: dict[str, Any]) -> str:
+    message = _truncate_text(str(log.get("message", "")), 180)
+    return (
+        f"{log.get('timestamp', 'unknown')} | {log.get('agent', 'unknown-agent')} | "
+        f"{log.get('level', 'ERROR')} | {log.get('source', 'unknown')}: {message}"
+    )
+
+
+def _format_anomaly_line(anomaly: dict[str, Any]) -> str:
+    explanation = anomaly.get("explanation") or "No explanation generated yet"
+    return (
+        f"{anomaly.get('timestamp', 'unknown')} | {anomaly.get('agent', 'unknown-agent')} | "
+        f"{anomaly.get('reason', 'unknown')} | score {anomaly.get('score', 0)} "
+        f"({anomaly.get('severity', 'unknown')}): {_truncate_text(str(explanation), 180)}"
+    )
+
+
+def _format_forecast_line(forecast: dict[str, Any]) -> str:
+    return (
+        f"{forecast.get('agent', 'unknown-agent')} | {forecast.get('metric', 'metric')} "
+        f"current {forecast.get('current_value', 'unknown')}%, predicted "
+        f"{forecast.get('predicted_value', 'unknown')}%, exceeds 90 in "
+        f"{forecast.get('exceed_in_hours', 'unknown')}h"
+    )
+
+
+def _format_incident_line(incident: dict[str, Any]) -> str:
+    return (
+        f"{incident.get('started_at', 'unknown')} | {incident.get('title', 'Incident')} | "
+        f"{incident.get('severity', 'unknown')} | {incident.get('status', 'unknown')}"
+    )
+
+
+def _format_issues(issues: Any) -> str:
+    if not isinstance(issues, list) or not issues:
+        return "None"
+    return "\n".join(str(issue) for issue in issues[:8])
+
+
+def _metric_value(metric: dict[str, Any], key: str) -> str:
+    value = metric.get(key)
+    if value is None:
+        return "unknown"
+    return str(value)
 
 
 def _truncate_text(value: str, limit: int) -> str:

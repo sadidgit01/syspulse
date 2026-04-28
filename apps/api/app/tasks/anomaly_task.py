@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from datetime import timedelta
 
@@ -11,16 +10,17 @@ from app.models import Agent, AnomalyEvent, IncidentSeverity, IncidentTriggerTyp
 from app.redis_client import anomalies_channel, publish_json
 from app.services.incident_service import IncidentService
 from app.tasks.celery_app import celery_app
+from app.tasks.runtime import run_async_task
 
 
 @celery_app.task(name="syspulse.anomaly.train_cycle")
 def run_anomaly_training_cycle() -> int:
-    return asyncio.run(_run_anomaly_training_cycle())
+    return run_async_task(_run_anomaly_training_cycle())
 
 
 @celery_app.task(name="syspulse.anomaly.train_agent")
 def train_agent_anomaly_model(agent_id: str, org_id: str) -> bool:
-    return asyncio.run(
+    return run_async_task(
         anomaly_detector.train(
             agent_id=uuid.UUID(agent_id),
             org_id=uuid.UUID(org_id),
@@ -30,7 +30,7 @@ def train_agent_anomaly_model(agent_id: str, org_id: str) -> bool:
 
 @celery_app.task(name="syspulse.anomaly.enrich_event")
 def enrich_anomaly_explanation(event_id: str) -> str:
-    return asyncio.run(_enrich_anomaly_explanation(uuid.UUID(event_id)))
+    return run_async_task(_enrich_anomaly_explanation(uuid.UUID(event_id)))
 
 
 async def _run_anomaly_training_cycle() -> int:

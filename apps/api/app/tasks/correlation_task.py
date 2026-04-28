@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 
 from app.database import async_session_factory
@@ -6,16 +5,19 @@ from app.models import IncidentSeverity, IncidentTriggerType
 from app.services.incident_service import IncidentService
 from app.services.correlation_engine import CorrelationEngine
 from app.tasks.celery_app import celery_app
+from app.tasks.runtime import run_async_task
 
 
 @celery_app.task(name="syspulse.correlation.run_cycle")
 def run_correlation_cycle() -> int:
-    return asyncio.run(_run_correlation_cycle())
+    return run_async_task(_run_correlation_cycle())
 
 
 @celery_app.task(name="syspulse.correlation.analyze_org")
 def analyze_org_correlation(org_id: str, window_minutes: int = 10) -> int:
-    return asyncio.run(_analyze_org_correlation(org_id=uuid.UUID(org_id), window_minutes=window_minutes))
+    return run_async_task(
+        _analyze_org_correlation(org_id=uuid.UUID(org_id), window_minutes=window_minutes)
+    )
 
 
 async def _run_correlation_cycle() -> int:

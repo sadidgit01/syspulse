@@ -437,6 +437,20 @@ export interface AIQueryBackendResponse {
   answer: string;
 }
 
+export interface AIHealthScoreBackendResponse {
+  score: number;
+  label: string;
+  agents: number;
+  online: number;
+  issues: string[];
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
+
 export interface SpanLogField {
   key: string;
   value: string | number | boolean | null;

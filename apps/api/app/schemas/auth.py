@@ -109,3 +109,11 @@ class AIQueryRequest(BaseModel):
 
 class AIQueryResponse(BaseModel):
     answer: str
+
+
+class AIHealthScoreResponse(BaseModel):
+    score: int
+    label: str
+    agents: int
+    online: int
+    issues: list[str]

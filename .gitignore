@@ -216,3 +216,6 @@ apps/web/public/workbox-*.js
 # Local runtime artifacts
 .tmp/
 apps/agent/python_agent/.agent.local.json
+
+# Private local docs
+RUNBOOK.md

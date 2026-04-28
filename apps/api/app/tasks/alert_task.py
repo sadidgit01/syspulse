@@ -1,12 +1,11 @@
-import asyncio
-
 from app.services.alert_evaluator import alert_evaluator
 from app.tasks.celery_app import celery_app
+from app.tasks.runtime import run_async_task
 
 
 @celery_app.task(name="syspulse.alert.run_cycle")
 def run_alert_cycle() -> int:
-    return asyncio.run(_run_alert_cycle())
+    return run_async_task(_run_alert_cycle())
 
 
 async def _run_alert_cycle() -> int:

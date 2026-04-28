@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 
 from sqlalchemy import select
@@ -10,11 +9,12 @@ from app.services.incident_service import IncidentService
 from app.services.llm_explainer import llm_explainer
 from app.redis_client import forecasts_channel, publish_json
 from app.tasks.celery_app import celery_app
+from app.tasks.runtime import run_async_task
 
 
 @celery_app.task(name="syspulse.forecast.run_cycle")
 def run_forecast_cycle() -> int:
-    return asyncio.run(_run_forecast_cycle())
+    return run_async_task(_run_forecast_cycle())
 
 
 async def _run_forecast_cycle() -> int:

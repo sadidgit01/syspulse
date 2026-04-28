@@ -2,6 +2,7 @@ import { logout, refreshAccessToken } from "@/lib/auth";
 import { useSysPulseStore } from "@/lib/store";
 import type {
   Agent,
+  AIHealthScoreBackendResponse,
   AIQueryBackendResponse,
   AlertChannel,
   AlertCondition,
@@ -489,6 +490,10 @@ export async function askAI(question: string): Promise<string> {
     body: JSON.stringify({ question })
   });
   return data.answer;
+}
+
+export async function getAIHealthScore(): Promise<AIHealthScoreBackendResponse> {
+  return apiFetch<AIHealthScoreBackendResponse>("/ai/health-score");
 }
 
 function rememberTraceId(traceId: string | null): void {

@@ -116,7 +116,7 @@ export function formatIncidentDuration(incident: Incident): string | null {
 export function getAgentToneClasses(lastSeen: string) {
   const ageInSeconds = (Date.now() - Date.parse(lastSeen)) / 1000;
 
-  if (ageInSeconds < 30) {
+  if (ageInSeconds < 45) {
     return {
       label: "alive",
       badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
