@@ -1,112 +1,260 @@
-# SysPulse ⚡
+# SysPulse
 
-> AI-native infrastructure observability. Metrics, logs, anomaly detection, and predictive alerts — in one self-hostable dashboard.
-
-*Live dashboard preview coming soon*
+AI-native infrastructure observability for teams that want metrics, logs, traces, incidents, alerts, and explanations in one self-hosted stack.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org)
 [![TimescaleDB](https://img.shields.io/badge/TimescaleDB-PostgreSQL-orange)](https://www.timescale.com)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Jaeger-5269f2)](https://opentelemetry.io)
+[![Go](https://img.shields.io/badge/Go-Agent-00ADD8?logo=go)](https://go.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript)](https://www.typescriptlang.org)
 [![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)](https://python.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript)](https://typescriptlang.org)
+[![Groq](https://img.shields.io/badge/AI-Llama%204%20via%20Groq-black)](https://groq.com)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+## Self-host in 3 commands
+
+```bash
+git clone https://github.com/sadidgit01/syspulse
+cd syspulse && cp .env.example .env
+make up
+# Open localhost:3000 - login with demo@syspulse.io / demo123
+```
 
 ---
 
 ## What is SysPulse?
 
-Most monitoring tools make you choose between **power and simplicity**. Datadog is powerful but costs $23 per server per month. Grafana + Prometheus is free but takes days to configure and still needs Loki, Alertmanager, and five other tools wired together.
+SysPulse is a self-hosted observability platform for infrastructure teams. It combines live server metrics, log ingestion, anomaly detection, forecasting, alert rules, incident timelines, distributed tracing, and an SRE-style assistant in one product.
 
-SysPulse is neither. It is a single, self-hostable platform that gives you:
+It is built for operators who want fast answers without stitching together a metrics system, log store, alert manager, trace viewer, agent installer, and AI layer by hand.
 
-- **Live metrics** — CPU, memory, disk, and network streaming to your browser in real time
-- **Log ingestion** — ship application and system logs alongside your metrics
-- **AI anomaly detection** — Isolation Forest models trained per agent, not global thresholds
-- **Predictive alerts** — Prophet forecasting warns you before disk fills or memory OOMs
-- **LLM explanations** — Llama 4 explains every anomaly in plain English via Groq
-- **Correlation engine** — automatically links CPU spikes to error logs at the same timestamp
-- **One-command agent install** — any machine, any OS, 60 seconds to first data point
+Core principles:
 
-No vendor lock-in. No usage limits. Runs on your own infrastructure.
+- Multi-tenant by default, with organization-scoped data isolation across every table and query.
+- Real-time first, with WebSocket metrics and SSE streams for logs, anomalies, and incidents.
+- Secure agent transport, with JWT agent identity, mTLS certificates, and HMAC-SHA256 payload signing.
+- AI as an explanation layer, not a decision maker. Rules and ML detect; the LLM explains.
+- Self-hostable from day one, with Docker Compose, Traefik, and automatic HTTPS support.
 
 ---
 
-## Demo
+## Screenshots
 
-| Live Dashboard | Fleet Heatmap | AI Anomaly Feed |
-|---|---|---|
-| *Screenshots coming soon* | *Screenshots coming soon* | *Screenshots coming soon* |
+Current `docs/screenshots/` inventory:
+
+- `login.png`
+- `dashboard-overview.png`
+- `live-metrics.png`
+- `syspulse-ai-health.png`
+- `syspulse-ai-advice.png`
+- `agents-heatmap.png`
+- `anomaly-feed.png`
+- `trace-viewer.png`
+- `incident-timeline.png`
+- `alert-rule-builder.png`
+
+| Login | Dashboard |
+|---|---|
+| ![SysPulse login](docs/screenshots/login.png) | ![SysPulse dashboard overview](docs/screenshots/dashboard-overview.png) |
+
+| Live Metrics | Agents and Heatmap |
+|---|---|
+| ![Live metrics dashboard](docs/screenshots/live-metrics.png) | ![Agents and CPU heatmap](docs/screenshots/agents-heatmap.png) |
+
+| SysPulse AI Health Summary | SysPulse AI Advice |
+|---|---|
+| ![SysPulse AI health summary](docs/screenshots/syspulse-ai-health.png) | ![SysPulse AI operational advice](docs/screenshots/syspulse-ai-advice.png) |
+
+| Anomaly Feed | Trace Viewer |
+|---|---|
+| ![Anomaly feed](docs/screenshots/anomaly-feed.png) | ![OpenTelemetry trace viewer](docs/screenshots/trace-viewer.png) |
+
+| Incident Timeline | Alert Rule Builder |
+|---|---|
+| ![Incident timeline](docs/screenshots/incident-timeline.png) | ![Alert rule builder](docs/screenshots/alert-rule-builder.png) |
 
 ---
 
-## Feature Highlights
+## Features
 
-### 🖥 Real-Time Monitoring
-Every agent streams CPU, memory, disk, and network deltas to the dashboard over WebSocket. The browser keeps a 60-sample ring buffer per agent — charts update the moment a snapshot lands, with zero polling.
+### Real-Time Observability
 
-### 🤖 Three-Tier AI Layer
-SysPulse uses a hybrid AI approach — not just an LLM wrapper.
+- Real-time metrics over WebSocket
+- CPU, memory, disk, and network telemetry
+- 60-sample in-browser ring buffer per agent
+- Agent heatmap and live status cards
+- Native WebSocket fanout by organization
 
-- **Tier 1 — Rule engine** fires first. Static thresholds, composite conditions, heartbeat checks. Zero ML cost, instant.
-- **Tier 2 — ML models** run continuously. Isolation Forest detects anomalies against each agent's own learned baseline. Prophet forecasts when a metric will cross 90%.
-- **Tier 3 — LLM explains** only after Tier 1 or 2 fires. Llama 4 (via Groq) receives the anomaly, recent metrics, and correlated log lines — and returns a plain-English root cause hypothesis.
+### Logs
 
-### 📋 Logs + Correlation
-Ship system and application logs from any agent. SysPulse stores them in TimescaleDB alongside metrics — same database, so a single SQL query can join a CPU spike with the error logs that fired at the same second. The correlation engine runs every 60 seconds and surfaces these events automatically.
+- Log ingestion from agents
+- TimescaleDB-backed log storage
+- Live log viewer with SSE streaming
+- Level, source, agent, search, and time-range filters
+- Log statistics by level, source, and hourly error rate
+- Correlation timeline across metrics and logs
 
-### 🔐 Security First
-- JWT access tokens (15-minute expiry) with rotating refresh tokens
-- Role-based access control — Admin, Viewer, Alert Manager
-- Org-scoped data isolation — multi-tenant from the database schema up
-- Invite system for team onboarding
-- Full audit log of every auth event, config change, and alert action
+### Correlation Engine
 
-### 🔔 Intelligent Alerts
-- Static threshold alerts
-- Relative alerts (vs. rolling 24h average)
-- Predictive alerts from Prophet forecasts
-- AI anomaly alerts from Isolation Forest
-- Channels: Slack, Email, Discord webhook, custom webhook
+- Detects CPU, memory, and disk spikes against recent rolling baselines
+- Matches spikes with ERROR and CRITICAL logs within a two-minute window
+- Stores correlation events with severity and normalized score
+- Publishes live correlation updates for the dashboard
 
-### 🛠 Developer Experience
-```bash
-# Install agent on any machine in one command
-npx syspulse-agent install --server https://your-syspulse.com --token <org_token>
+### Machine Learning
 
-# That's it. Machine appears in dashboard within 60 seconds.
-```
+- Isolation Forest anomaly detection
+- Per-agent learned baseline instead of global thresholds
+- Hourly retraining from each agent's last 24 hours of metrics
+- Anomaly event storage with score, reason, details, snapshot, and explanation
+- Prophet time-series forecasting for CPU, memory, and disk
+- Forecast alerts when a metric is predicted to exceed 90 percent
+
+### SysPulse AI
+
+- Groq integration using Llama 4
+- Model: `meta-llama/llama-4-scout-17b-16e-instruct`
+- Infrastructure-aware chat assistant for operators
+- Live fleet health score with agent count, online count, and issue summary
+- Answers natural-language questions using current telemetry, not static documentation
+- Reads live metrics, 60-minute trends, recent ERROR and CRITICAL logs, anomalies, forecasts, and open incidents
+- Explains CPU, memory, disk, network, and incident behavior with exact numbers from the user's own infrastructure
+- Gives practical SRE-style next steps when a host is under pressure
+- Plain-English anomaly explanations
+- Forecast explanations
+- Keeps recent chat history in the dashboard and supports suggested questions for quick triage
+
+### Incidents
+
+- Incident timeline with status and severity
+- Auto-created incidents from anomaly, forecast, and correlation triggers
+- Timeline events built from metrics, logs, anomalies, correlations, comments, and status changes
+- LLM-generated incident summaries
+- Live incident updates over SSE
+- Manual incident creation from the dashboard
+
+### Alerts
+
+- Alert rule builder
+- Threshold rules
+- Relative-change rules
+- Composite AND/OR rules
+- AI anomaly score rules
+- Cooldowns to prevent repeated firing
+- Slack alert channel
+- Discord alert channel
+- Custom webhook alert channel
+- Email channel stub for future SMTP integration
+- Push notifications for alert events
+
+### Tracing
+
+- OpenTelemetry instrumentation for FastAPI
+- SQLAlchemy query tracing
+- Manual spans for metric ingest, anomaly detection, forecasting, and LLM explanations
+- OTLP collector
+- Jaeger trace storage and visualization
+- Built-in SysPulse trace viewer with waterfall display
+- `X-Trace-ID` response headers for API request correlation
+
+### Agents
+
+- Production Go agent
+- Cross-platform builds for Linux, Windows, and macOS
+- Metrics collection with `gopsutil`
+- Batched metric shipping
+- Gzip payload compression
+- Network delta encoding
+- HMAC-SHA256 payload signing
+- mTLS mutual certificate authentication
+- Python development agent remains available for local testing
+
+### Security and Access
+
+- JWT authentication
+- Rotating refresh tokens
+- Redis-backed refresh token invalidation
+- RBAC roles: Admin, Viewer, Alert Manager
+- Invite system
+- Audit log for auth events
+- Organization-scoped data isolation
+- Agent tokens scoped to one registered agent
+- mTLS certificate issuance and rotation
+
+### Frontend and Deployment
+
+- Next.js 15 App Router
+- TypeScript strict mode
+- Tailwind CSS v4
+- Zustand state store
+- Recharts charts
+- Dark dashboard UI
+- PWA support
+- Installable on mobile
+- Web push subscription endpoint
+- One-command local startup with Make
+- One-command production deploy with Traefik and automatic HTTPS
+- CLI installer: `npx syspulse-agent install`
 
 ---
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                        Browser                          │
-│              Next.js 15 · TypeScript · Tailwind         │
-│         WebSocket streaming · Zustand · Recharts        │
-└───────────────────────┬─────────────────────────────────┘
-                        │ WebSocket / REST
-┌───────────────────────▼─────────────────────────────────┐
-│                    FastAPI Core                         │
-│         Async SQLAlchemy · Redis Pub/Sub · JWT          │
-│      Celery workers · Anomaly tasks · Forecast tasks    │
-└──────────┬──────────────────────────┬───────────────────┘
-           │                          │
-┌──────────▼──────────┐   ┌──────────▼──────────────────┐
-│  PostgreSQL +        │   │          Redis               │
-│  TimescaleDB         │   │  Pub/Sub · Cache · Rate limit│
-│  Metrics hypertable  │   └─────────────────────────────┘
-│  Logs hypertable     │
-│  Auth · Audit log    │
-└─────────────────────┘
-           ▲
-           │ HTTP (batched + compressed)
-┌──────────┴──────────┐
-│    Python Agent      │
-│  psutil · httpx      │
-│  Runs on any server  │
-└─────────────────────┘
+```text
+Go Agent / Python Dev Agent
+  - gopsutil or psutil collectors
+  - gzip batched payloads
+  - HMAC-SHA256 signatures
+  - mTLS certificate auth
+        |
+        v
+FastAPI Backend
+  - JWT auth and RBAC
+  - agent registration
+  - metrics ingest
+  - logs ingest
+  - WebSocket and SSE streams
+  - OpenTelemetry spans
+        |
+        +--> PostgreSQL + TimescaleDB
+        |      - organizations
+        |      - users
+        |      - agents
+        |      - metrics hypertable
+        |      - log_entry hypertable
+        |      - anomaly_events
+        |      - forecast_alerts
+        |      - correlation_events
+        |      - incidents
+        |      - alert_rules
+        |      - audit_log
+        |
+        +--> Redis
+        |      - pub/sub
+        |      - caching
+        |      - rate limiting
+        |      - token rotation state
+        |
+        +--> Celery
+        |      - anomaly training
+        |      - forecasting
+        |      - correlation
+        |      - alert evaluation
+        |
+        +--> OTel Collector --> Jaeger
+        |
+        v
+Next.js Dashboard
+  - live metrics
+  - log viewer
+  - incident timeline
+  - alert builder
+  - anomaly feed
+  - forecast warnings
+  - AI query box
+  - trace waterfall viewer
 ```
 
 ---
@@ -116,16 +264,20 @@ npx syspulse-agent install --server https://your-syspulse.com --token <org_token
 | Layer | Technology |
 |---|---|
 | Backend | FastAPI, Python 3.11, SQLAlchemy 2.0 async, Alembic |
-| Database | PostgreSQL 16 + TimescaleDB (metrics & logs hypertables) |
-| Cache / Pub-Sub | Redis 7 |
-| Background jobs | Celery + Redis broker |
-| Frontend | Next.js 15, TypeScript, Tailwind CSS, shadcn/ui, Recharts |
-| State | Zustand with WebSocket-fed ring buffers |
-| AI / ML | scikit-learn (Isolation Forest), Prophet, Groq API (Llama 4) |
-| Agent | Python + psutil, batched HTTP delivery, SIGTERM-safe |
-| CLI | Node.js + TypeScript (`npx syspulse-agent`) |
-| Auth | JWT + rotating refresh tokens, RBAC, bcrypt |
-| Infrastructure | Docker Compose, Traefik (prod) |
+| Database | PostgreSQL 16, TimescaleDB |
+| Cache and Pub/Sub | Redis 7 |
+| Background Jobs | Celery, Redis broker |
+| Frontend | Next.js 15, TypeScript, Tailwind CSS v4, shadcn-style components |
+| Charts | Recharts |
+| State | Zustand |
+| Auth | JWT, bcrypt, RBAC, rotating refresh tokens |
+| ML | scikit-learn Isolation Forest, Prophet |
+| LLM | Groq, Llama 4 |
+| Tracing | OpenTelemetry, OTLP Collector, Jaeger |
+| Agent | Go 1.22, gopsutil, mTLS, HMAC signing |
+| Dev Agent | Python, psutil, httpx |
+| CLI | Node.js, TypeScript, `npx syspulse-agent` |
+| Deployment | Docker Compose, Traefik, Let's Encrypt |
 
 ---
 
@@ -133,116 +285,335 @@ npx syspulse-agent install --server https://your-syspulse.com --token <org_token
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
+- Docker Desktop
+- Git
 - Node.js 20+
 - Python 3.11+
-- Git
+- Make
+
+On Windows, use PowerShell from the project root unless a command says otherwise.
 
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/sadidgit01/syspulse.git
+git clone https://github.com/sadidgit01/syspulse
 cd syspulse
 cp .env.example .env
 ```
 
-Open `.env` and fill in:
+Windows PowerShell:
 
-```env
-POSTGRES_USER=syspulse
-POSTGRES_PASSWORD=your_password
-POSTGRES_DB=syspulse
-DATABASE_URL=postgresql+asyncpg://syspulse:your_password@postgres:5432/syspulse
-REDIS_URL=redis://redis:6379
-SECRET_KEY=your_64_char_random_secret
-GROQ_API_KEY=your_groq_api_key        # Free at console.groq.com
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
+```powershell
+git clone https://github.com/sadidgit01/syspulse
+cd syspulse
+Copy-Item .env.example .env
 ```
 
-### 2. Start the database
+Edit `.env` and set production-grade secrets before exposing the app publicly.
+
+### 2. Start the stack
 
 ```bash
-docker compose up postgres redis -d
+make up
 ```
+
+This starts the local Docker Compose stack.
 
 ### 3. Run migrations
 
 ```bash
-cd apps/api
-python -m venv venv && source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-alembic upgrade head
+make migrate
 ```
 
-### 4. Start the API
+### 4. Seed the demo account
 
 ```bash
+make seed
+```
+
+The seed script creates:
+
+- Email: `demo@syspulse.io`
+- Password: `demo123`
+- Organization: `SysPulse Demo`
+
+It also prints the organization token used to register agents.
+
+### 5. Open the dashboard
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+Login with:
+
+```text
+demo@syspulse.io / demo123
+```
+
+---
+
+## Agent Install
+
+Install the production Go agent with the CLI:
+
+```bash
+npx syspulse-agent install --server http://localhost:8000 --token <org_token>
+```
+
+The CLI:
+
+- detects OS and architecture
+- registers the host as an agent
+- downloads the correct Go agent binary
+- installs mTLS certificates
+- saves local config in `~/.syspulse`
+- installs a background service
+- verifies the agent is reporting
+
+Check status:
+
+```bash
+npx syspulse-agent status
+```
+
+Rotate mTLS certificates:
+
+```bash
+npx syspulse-agent rotate-cert
+```
+
+For development, the Python agent is available at:
+
+```text
+apps/agent/python_agent
+```
+
+---
+
+## Local Development
+
+Run services manually when working outside Docker.
+
+### API
+
+```bash
+cd apps/api
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 5. Register your account
+Windows PowerShell:
 
-```bash
-curl -X POST http://localhost:8000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","password":"yourpassword","org_name":"My Org"}'
+```powershell
+cd apps\api
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Save the `org_token` from the response.
-
-### 6. Start the frontend
+### Frontend
 
 ```bash
 cd apps/web
-npm install && npm run dev
+npm install
+npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and log in.
+### Celery
 
-### 7. Install an agent
+Worker:
 
 ```bash
-# On any machine you want to monitor:
-npx syspulse-agent install \
-  --server http://localhost:8000 \
-  --token <your_org_token>
+cd apps/api
+celery -A app.tasks.celery_app worker --loglevel=info
 ```
 
-Or run the Python agent directly for development:
+Windows PowerShell:
+
+```powershell
+cd apps\api
+celery -A app.tasks.celery_app worker --loglevel=info -P solo
+```
+
+Beat scheduler:
 
 ```bash
-cd apps/agent/python_agent
-# Set SYSPULSE_SERVER and AGENT_TOKEN in .env
-python agent.py
+cd apps/api
+celery -A app.tasks.celery_app beat --loglevel=info
 ```
 
-Your machine appears in the dashboard within seconds.
+### OpenTelemetry
+
+```bash
+docker compose up jaeger otel-collector -d
+```
+
+Jaeger UI:
+
+```text
+http://localhost:16686
+```
+
+For a locally running API, set this in `apps/api/.env`:
+
+```env
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+```
+
+For an API running inside Docker, use:
+
+```env
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+```
+
+---
+
+## Production Deploy
+
+SysPulse includes a production Docker Compose file with:
+
+- Postgres
+- Redis
+- API
+- Web
+- Celery worker
+- Celery beat
+- Traefik
+- automatic HTTPS through Let's Encrypt
+- OTel collector
+- Jaeger
+
+Configure `.env`:
+
+```env
+DOMAIN=yourdomain.com
+SECRET_KEY=generate_with_openssl_rand_hex_32
+POSTGRES_PASSWORD=change_this_strong_password
+GROQ_API_KEY=get_free_at_console_groq_com
+VAPID_PUBLIC_KEY=generate_with_pywebpush
+VAPID_PRIVATE_KEY=generate_with_pywebpush
+```
+
+Deploy:
+
+```bash
+make prod-deploy
+```
+
+Manage production:
+
+```bash
+make prod-up
+make prod-logs
+make prod-down
+```
 
 ---
 
 ## Project Structure
 
-```
+```text
 syspulse/
 ├── apps/
-│   ├── api/                 ← FastAPI backend
+│   ├── api/
 │   │   ├── app/
-│   │   │   ├── models/      ← SQLAlchemy models (multi-tenant)
-│   │   │   ├── routers/     ← API endpoints
-│   │   │   ├── services/    ← Business logic, AI engine
-│   │   │   └── tasks/       ← Celery background tasks
-│   │   └── alembic/         ← Database migrations
-│   ├── web/                 ← Next.js 15 dashboard
-│   │   ├── app/             ← App Router pages
-│   │   ├── components/      ← UI components
-│   │   ├── hooks/           ← Custom React hooks
-│   │   └── lib/             ← WebSocket client, API, store
+│   │   │   ├── models/
+│   │   │   ├── routers/
+│   │   │   ├── schemas/
+│   │   │   ├── services/
+│   │   │   ├── tasks/
+│   │   │   └── telemetry.py
+│   │   ├── alembic/
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   ├── web/
+│   │   ├── app/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   ├── public/
+│   │   └── types/
 │   └── agent/
-│       └── python_agent/    ← Lightweight metrics agent
-└── packages/
-    └── cli/                 ← npx syspulse-agent CLI
+│       ├── go_agent/
+│       └── python_agent/
+├── packages/
+│   └── cli/
+├── infra/
+│   ├── nginx/
+│   ├── otel/
+│   └── traefik/
+├── docs/
+├── docker-compose.yml
+├── docker-compose.prod.yml
+├── Makefile
+└── README.md
 ```
+
+---
+
+## API Surface
+
+Key endpoint groups:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `GET /auth/me`
+- `POST /auth/invite`
+- `POST /auth/accept-invite`
+- `POST /agents/register`
+- `GET /agents`
+- `GET /agents/{agent_id}/cert`
+- `POST /agents/{agent_id}/rotate-cert`
+- `POST /ingest/metrics`
+- `POST /ingest/logs`
+- `GET /metrics/{agent_id}`
+- `GET /logs`
+- `GET /logs/stats`
+- `GET /logs/stream`
+- `GET /correlate`
+- `GET /correlate/events`
+- `GET /anomalies`
+- `GET /forecasts`
+- `POST /ai/query`
+- `GET /ai/health-score`
+- `GET /incidents`
+- `GET /incidents/stream`
+- `POST /incidents`
+- `GET /alert-rules`
+- `POST /alert-rules`
+- `POST /alert-rules/{rule_id}/test`
+- `POST /push/subscribe`
+- `WS /ws/{org_id}`
+
+---
+
+## Security Model
+
+SysPulse separates human access from agent access.
+
+Human users authenticate with JWT access tokens and rotating refresh tokens. Roles are enforced through RBAC:
+
+- Admin
+- Viewer
+- Alert Manager
+
+Agents authenticate with scoped JWT agent tokens. Production agent traffic also supports:
+
+- mTLS certificate authentication
+- org-scoped certificate authority
+- certificate rotation
+- HMAC-SHA256 payload signatures
+- gzip-compressed payloads
+
+Every persisted business table includes `org_id`, and queries are filtered by organization.
 
 ---
 
@@ -250,50 +621,69 @@ syspulse/
 
 | Feature | SysPulse | Datadog | Grafana + Prometheus |
 |---|---|---|---|
-| Self-hostable | ✅ | ❌ | ✅ |
-| Open source | ✅ | ❌ | ✅ |
-| Cost | Free | ~$23/host/mo | Free + ops burden |
-| Setup time | ~5 minutes | Complex | Hours across 4+ tools |
-| AI anomaly detection | ✅ Per-agent ML | ✅ (paid tier) | ❌ |
-| Predictive alerts | ✅ Prophet | ✅ (paid tier) | ❌ |
-| LLM explanations | ✅ Llama 4 | ❌ | ❌ |
-| Metrics + Logs unified | ✅ | ✅ | Needs Loki + wiring |
-| One-command agent install | ✅ | ❌ | ❌ |
-| Multi-tenant | ✅ | ✅ | ❌ |
+| Self-hostable | Yes | No | Yes |
+| Open source friendly | Yes | No | Yes |
+| Live metrics | Yes | Yes | Yes |
+| Log ingestion | Yes | Yes | Requires Loki |
+| Built-in incidents | Yes | Yes | Requires extra tooling |
+| Built-in trace viewer | Yes | Yes | Requires Tempo or Jaeger |
+| ML anomaly detection | Per-agent Isolation Forest | Paid platform feature | External setup |
+| Forecasting | Prophet | Paid platform feature | External setup |
+| LLM explanations | Llama 4 via Groq | No native equivalent | External setup |
+| Agent installer | `npx syspulse-agent install` | Vendor agent | Manual setup |
+| mTLS agent auth | Yes | Vendor managed | Manual setup |
+| Multi-tenant isolation | Yes | Yes | Manual setup |
+| PWA dashboard | Yes | No | No |
 
 ---
 
 ## Roadmap
 
-- [x] Phase 1 — Core metrics pipeline, WebSocket streaming, live dashboard
-- [x] Phase 2 — JWT auth, RBAC, org management, CLI agent installer
-- [x] Phase 3 — Log ingestion, live log viewer, correlation engine
-- [x] Phase 4 — Isolation Forest anomaly detection, Prophet forecasting, Llama 4 explanations
-- [ ] Phase 5 — Go agent rewrite, mTLS, batching, delta encoding
-- [ ] Phase 6 — OpenTelemetry tracing, trace viewer
-- [ ] Phase 7 — Incident timeline, alert rule builder UI, PWA, one-click cloud deploy
+- ✅ Phase 1 - Core FastAPI backend, TimescaleDB metrics, WebSocket dashboard
+- ✅ Phase 2 - JWT auth, RBAC, organizations, invite system, CLI foundation
+- ✅ Phase 3 - Log ingestion, live log viewer, log stats, correlation queries
+- ✅ Phase 4 - Isolation Forest anomalies, Prophet forecasts, Groq Llama 4 explanations
+- ✅ Phase 5 - Production Go agent, mTLS certificates, HMAC signing, CLI install flow
+- ✅ Phase 6 - OpenTelemetry tracing, Jaeger, built-in trace viewer
+- ✅ Phase 7 - Incident timeline, alert rule builder, PWA, push notifications, one-command deploy
+
+---
+
+## Development Commands
+
+```bash
+make up
+make down
+make logs
+make migrate
+make seed
+make restart-api
+make shell-api
+make shell-db
+make prod-up
+make prod-down
+make prod-logs
+make prod-deploy
+```
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first to discuss what you'd like to change.
+Contributions are welcome. Please open an issue first for larger changes so implementation details can be discussed before code lands.
 
 ```bash
 git checkout -b feature/your-feature
-git commit -m "feat: your feature"
+git commit -m "feat: add your feature"
 git push origin feature/your-feature
-# Open a pull request
 ```
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE) for details.
 
 ---
 
-<p align="center">
-  Built by <a href="https://github.com/sadidgit01">Sadid</a> · Star ⭐ if SysPulse saved your server
-</p>
+Built by [Sadid](https://github.com/sadidgit01).
