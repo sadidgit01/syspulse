@@ -2,8 +2,6 @@ import type { Span, SpanLog, SpanLogField, TraceDetail, TraceListItem } from "@/
 
 const DEFAULT_JAEGER_URLS = [
   process.env.JAEGER_QUERY_URL,
-  "http://127.0.0.1:16686",
-  "http://localhost:16686",
   "http://jaeger:16686"
 ]
   .filter((value): value is string => typeof value === "string" && value.trim().length > 0)

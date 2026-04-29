@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ACCESS_COOKIE_NAME } from "@/lib/auth";
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+import { getBackendBaseUrl } from "@/lib/server-config";
 
 async function handleProxy(request: NextRequest, path: string[]) {
   const accessToken = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
@@ -11,7 +10,7 @@ async function handleProxy(request: NextRequest, path: string[]) {
   }
 
   const search = request.nextUrl.search || "";
-  const backendUrl = `${API_BASE_URL}/${path.join("/")}${search}`;
+  const backendUrl = `${getBackendBaseUrl()}/${path.join("/")}${search}`;
   const headers = new Headers();
 
   headers.set("Authorization", `Bearer ${accessToken}`);

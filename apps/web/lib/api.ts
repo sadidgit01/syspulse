@@ -34,8 +34,6 @@ import type {
   TraceListItem
 } from "@/types";
 
-const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000";
-
 interface AgentApiResponse {
   id: string;
   org_id: string;
@@ -57,7 +55,17 @@ export class ApiError extends Error {
 }
 
 export function getWebSocketBaseUrl(): string {
-  return DEFAULT_WS_URL.replace(/\/$/, "");
+  const configuredUrl = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${protocol}//${window.location.host}`;
+  }
+
+  throw new Error("NEXT_PUBLIC_WS_URL must be configured outside the browser runtime.");
 }
 
 export async function apiFetch<T>(

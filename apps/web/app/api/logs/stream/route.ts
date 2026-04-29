@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { ACCESS_COOKIE_NAME } from "@/lib/auth";
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+import { getBackendBaseUrl } from "@/lib/server-config";
 
 export async function GET(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_COOKIE_NAME)?.value;
@@ -10,7 +9,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ detail: "Not authenticated" }, { status: 401 });
   }
 
-  const response = await fetch(`${API_BASE_URL}/logs/stream?token=${encodeURIComponent(accessToken)}`, {
+  const response = await fetch(`${getBackendBaseUrl()}/logs/stream?token=${encodeURIComponent(accessToken)}`, {
     headers: {
       Accept: "text/event-stream"
     },

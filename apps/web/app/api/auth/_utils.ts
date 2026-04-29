@@ -9,16 +9,16 @@ import {
   SESSION_ORG_NAME_COOKIE_NAME,
   SESSION_ROLE_COOKIE_NAME
 } from "@/lib/auth";
+import { getBackendBaseUrl } from "@/lib/server-config";
 import type { AuthBackendResponse, MeBackendResponse } from "@/types";
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 
 export async function postToBackend<TResponse>(
   path: string,
   body: Record<string, unknown> | undefined
 ): Promise<TResponse> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -36,7 +36,7 @@ export async function postToBackend<TResponse>(
 }
 
 export async function fetchMe(accessToken: string): Promise<MeBackendResponse> {
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+  const response = await fetch(`${getBackendBaseUrl()}/auth/me`, {
     headers: {
       Authorization: `Bearer ${accessToken}`
     },
